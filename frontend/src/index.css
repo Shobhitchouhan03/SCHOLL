@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface text-textMain font-sans antialiased selection:bg-morning selection:text-white transition-colors duration-200;
+    min-height: 100vh;
+  }
+}
+
+/* Dark Mode Global Overrides */
+.dark body {
+  background-color: #121212 !important;
+  color: #F8F7F4 !important;
+}
+
+.dark .bg-surface {
+  background-color: #121212 !important;
+}
+
+.dark .bg-white {
+  background-color: #1E1E1E !important;
+  color: #F8F7F4 !important;
+}
+
+.dark .text-darkBrown,
+.dark .text-textMain {
+  color: #F8F7F4 !important;
+}
+
+.dark .text-textMuted {
+  color: #A0A0A0 !important;
+}
+
+.dark .border-almond\/40,
+.dark .border-almond\/30,
+.dark .border-almond\/60,
+.dark .border-almond\/20 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark .divide-almond\/20 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-almond\/30 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #2A2A2A !important;
+  color: #F8F7F4 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F8F7F4;
+}
+.dark ::-webkit-scrollbar-track {
+  background: #121212;
+}
+::-webkit-scrollbar-thumb {
+  background: #CFD0CD;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #444444;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #8A9992;
+}
