@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
+import api, { API_BASE_URL } from '../../services/api';
 import Header from '../../components/common/Header';
 import Sidebar from '../../components/common/Sidebar';
 import StatCard from '../../components/common/StatCard';
@@ -58,7 +58,7 @@ const PrincipalAttendanceOverviewPage = () => {
   };
 
   const handleExportCSV = () => {
-    window.open(`http://localhost:5000/api/principal/attendance/export?startDate=${selectedDate}&endDate=${selectedDate}`, '_blank');
+    window.open(`${API_BASE_URL}/principal/attendance/export?startDate=${selectedDate}&endDate=${selectedDate}`, '_blank');
   };
 
   const overallPercentage = summaryData?.overallPercentage || 0;

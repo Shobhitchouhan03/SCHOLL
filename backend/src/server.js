@@ -44,19 +44,37 @@ app.use(express.urlencoded({ extended: true }));
 
 // CORS configuration
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:5173',
+  process.env.CLIENT_URL,
+  process.env.FRONTEND_URL,
+  process.env.PUBLIC_APP_URL,
+  'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
-];
+].filter(Boolean);
+
+const rootDomain = process.env.ROOT_DOMAIN;
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (like mobile apps, postman, or server-to-server)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(null, true); // Permissive in development for seamless testing
+
+      // Dynamic subdomain matching if ROOT_DOMAIN is configured (e.g., *.yourdomain.com)
+      if (rootDomain && (origin.endsWith(`.${rootDomain}`) || origin === `https://${rootDomain}` || origin === `http://${rootDomain}`)) {
+        return callback(null, true);
+      }
+
+      // Permissive fallback in development mode
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+
+      return callback(new Error('CORS policy error: Origin not allowed by multi-tenant security policy.'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

@@ -1,25 +1,24 @@
 # Development Progress
 
 ## Last Completed Patch
-PATCH STEP 6A — GitHub Clean & Secure Push (100% Complete).
+PATCH STEP 6B — Production Deployment Preparation & Environment Configuration.
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Fully audited for security (0 accidental secrets committed), clean `.gitignore` rules, template environment variables (`frontend/.env.example`, `backend/.env.example`), 100% master system verification pass, clean production build (1667 modules), initial Git commit on `main` branch (commit `a8647ec`), clean working tree, and successfully pushed to remote GitHub origin (`https://github.com/Shobhitchouhan03/SCHOLL.git`).
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Fully configured for production deployment: environment-driven API URLs (`API_BASE_URL` in `frontend/src/services/api.js`), dynamic CORS allowed origins with wildcard subdomain matching (`backend/src/server.js`), HttpOnly production cookie configuration, single SPA rewrite rules (`vercel.json`, `_redirects`), clean production build (1667 modules), 100% master verification pass, zero hardcoded production localhost dependencies, and comprehensive deployment documentation (`DEPLOYMENT.md`). Pushed to GitHub remote origin (`https://github.com/Shobhitchouhan03/SCHOLL.git`).
 
 ## Completed
-- **1. Secret Security Audit**: Audited repository for sensitive credentials, secrets, tokens, and MongoDB URIs. 0 secrets present in tracked codebase. `.env` and local credentials are strictly ignored.
-- **2. .gitignore Production Audit**: Verified `.gitignore` contains rules for `node_modules/`, `frontend/node_modules/`, `backend/node_modules/`, `.env`, `.env.*`, `!.env.example`, `dist/`, `frontend/dist/`, `*.log`, `DEV_CREDENTIALS.local.md`, `coverage/`, and `.DS_Store`.
-- **3. Environment Templates**: Maintained safe placeholder templates in `frontend/.env.example` and `backend/.env.example`.
-- **4. Production Build & Verification**: Executed `npm run build --prefix frontend` (3.99s, 1667 modules, 0 errors) and `npm run verify` (100% pass across all 10 unit test suites, API doc audit, TS audit, git-ignore audit).
-- **5. Initial Git Commit**: Initialized local Git repository on `main` branch. Staged clean workspace and created initial commit `a8647ec` (`"Production-ready multi-tenant school management SaaS"`). Working tree is 100% clean.
-- **6. Remote GitHub Push**: Added origin remote `https://github.com/Shobhitchouhan03/SCHOLL.git` and successfully pushed `main` branch to remote origin. `main` branch set up to track `origin/main`.
+- **1. Frontend Production Environment Configuration**: Exported `API_BASE_URL` in `frontend/src/services/api.js` (`import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'`). Replaced hardcoded localhost URL in `PrincipalAttendanceOverviewPage.jsx` with dynamic `${API_BASE_URL}` resolution.
+- **2. Backend Production CORS & Security**: Updated `backend/src/server.js` CORS policy to filter `CLIENT_URL`, `FRONTEND_URL`, `PUBLIC_APP_URL`, and dynamically authorize wildcard subdomains when `ROOT_DOMAIN` is set. Maintained HttpOnly cookie security and `/api/health` endpoint.
+- **3. Environment Security & .gitignore Validation**: Confirmed `.gitignore` protects all real `.env` files and local credentials. Confirmed `frontend/.env.example` and `backend/.env.example` contain variable names only with zero exposed secrets.
+- **4. Single Page Application (SPA) Routing**: Verified React Router SPA fallback rewrites in `frontend/public/_redirects` (`/* /index.html 200`) and `frontend/public/vercel.json` for direct URL page refreshes across all role portals.
+- **5. Production Build & Master Verification**: Executed `npm run build --prefix frontend` (3.49s, 1667 modules, 0 errors) and `npm run verify` (100% pass across all 10 unit test suites, API doc audit, TS audit, git-ignore audit).
+- **6. Deployment Documentation**: Created comprehensive `DEPLOYMENT.md` guide covering MongoDB Atlas setup, backend deployment (Render/Railway/AWS), frontend deployment (Vercel/Netlify/Cloudflare), custom domain DNS records, and environment variable requirements.
 
 ## Partial
 - None.
 
 ## Pending
-- **Step 6B**: MongoDB Production Configuration.
-- **Step 6C**: Cloud Provider Deployment (AWS / GCP / DigitalOcean / Vercel / Render).
+- **Step 6C**: Live Cloud Provider Deployment (AWS / GCP / DigitalOcean / Vercel / Render).
 
 ## Known Bugs
 - None (0 runtime errors, 0 build warnings).

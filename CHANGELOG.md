@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.12.0] - 2026-08-11
+
+### Added
+- **STEP 6B — Production Deployment Preparation & Environment Configuration**:
+  - Exported `API_BASE_URL` in `frontend/src/services/api.js` (`import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'`).
+  - Replaced hardcoded localhost URL in `PrincipalAttendanceOverviewPage.jsx` with dynamic `${API_BASE_URL}` constant.
+  - Enhanced CORS allowed origins in `backend/src/server.js` with dynamic wildcard subdomain matching when `ROOT_DOMAIN` is set.
+  - Verified SPA rewrite rules (`frontend/public/_redirects` and `frontend/public/vercel.json`).
+  - Updated production deployment guide (`DEPLOYMENT.md`).
+
 ## [3.11.0] - 2026-08-11
 
 ### Added
