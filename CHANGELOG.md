@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.13.0] - 2026-08-11
+
+### Added
+- **STEP 6C — Production Backend Deployment Preparation & Render Deployment**:
+  - Added `app.set('trust proxy', 1)` in `backend/src/server.js` for Render reverse proxy compatibility.
+  - Created production infrastructure blueprint `render.yaml`.
+  - Formulated 12 click-by-click Render dashboard deployment instructions.
+  - Verified MongoDB Atlas production readiness.
+
 ## [3.12.0] - 2026-08-11
 
 ### Added

@@ -36,6 +36,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Enable trust proxy for Render reverse proxy compatibility
+app.set('trust proxy', 1);
+
 // Security Middlewares
 app.use(helmet());
 app.use(cookieParser());

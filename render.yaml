@@ -1,0 +1,32 @@
+# Render Production Deployment Blueprint
+# Multi-Tenant School Management SaaS Backend
+
+services:
+  - type: web
+    name: school-saas-backend
+    env: node
+    region: singapore # or frankfurt, oregon, ohio
+    plan: free # or starter / standard
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: ROOT_DOMAIN
+        sync: false
+      - key: COOKIE_DOMAIN
+        sync: false
