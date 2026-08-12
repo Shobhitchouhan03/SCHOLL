@@ -1,15 +1,15 @@
 # Development Progress
 
 ## Last Completed Patch
-PATCH STEP 6C — Production Backend Deployment Preparation & Render Deployment (Awaiting User Action).
+PATCH STEP 6C — Production Backend Deployment Preparation & Render Setup (Refined Blueprint — Awaiting User Action).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Fully prepared for Render backend deployment: enabled Express `trust proxy` (`backend/src/server.js`), created production-safe `render.yaml` blueprint, verified MongoDB Atlas environment connection handling, audited CORS and HttpOnly cookie options, documented 12 exact click-by-click Render dashboard instructions, and pushed changes to GitHub (`https://github.com/Shobhitchouhan03/SCHOLL.git`).
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Fully prepared for Render backend deployment: enabled Express `trust proxy` (`backend/src/server.js`), refined `render.yaml` blueprint with dynamic `PORT` allocation and auto-generated JWT secrets (`generateValue: true`), verified MongoDB Atlas environment connection handling, audited CORS and HttpOnly cookie options, documented 12 exact click-by-click Render dashboard instructions, and pushed changes to GitHub (`https://github.com/Shobhitchouhan03/SCHOLL.git`).
 
 ## Completed
 - **1. Backend Production Configuration**: Verified Root Directory (`backend`), Build Command (`npm install`), Start Command (`npm start`), and Health Check (`/api/health`). Added `app.set('trust proxy', 1)` in `backend/src/server.js`.
-- **2. Render Infrastructure Blueprint**: Created `render.yaml` infrastructure configuration defining environment variable specifications, build commands, and health probe paths without hardcoded secrets.
-- **3. Environment Variable Specification**: Formulated exact list of 9 required backend environment variables (`NODE_ENV`, `PORT`, `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CLIENT_URL`, `PUBLIC_APP_URL`, `ROOT_DOMAIN`, `COOKIE_DOMAIN`).
+- **2. Render Infrastructure Blueprint Refinement**: Updated `render.yaml` to remove hardcoded `PORT` value, allowing Render to dynamically supply `PORT` via `process.env.PORT || 5000`. Configured JWT access/refresh secrets with `generateValue: true` and dashboard sync for sensitive domain/DB variables.
+- **3. Environment Variable Specification**: Formulated exact list of 8 dashboard-supplied and auto-generated backend environment variables (`NODE_ENV`, `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CLIENT_URL`, `PUBLIC_APP_URL`, `ROOT_DOMAIN`, `COOKIE_DOMAIN`).
 - **4. MongoDB Atlas Production Audit**: Confirmed existing Atlas cluster connection is 100% production-ready, using environment-injected URI (`MONGODB_URI`), strict multi-tenant index isolation, and resilient 5000ms selection timeout.
 - **5. Master Verification & Git Sync**: Executed `npm run build --prefix frontend` (3.36s, 1667 modules) and `npm run verify` (100% pass across all 10 unit test suites). Pushed codebase to GitHub remote `origin/main`.
 

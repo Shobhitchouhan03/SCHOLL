@@ -2,12 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.13.0] - 2026-08-11
+## [3.13.0] - 2026-08-12
 
 ### Added
 - **STEP 6C — Production Backend Deployment Preparation & Render Deployment**:
   - Added `app.set('trust proxy', 1)` in `backend/src/server.js` for Render reverse proxy compatibility.
-  - Created production infrastructure blueprint `render.yaml`.
+  - Created and refined production infrastructure blueprint `render.yaml` with dynamic `PORT` allocation (`process.env.PORT || 5000`) and auto-generated JWT secrets (`generateValue: true`).
   - Formulated 12 click-by-click Render dashboard deployment instructions.
   - Verified MongoDB Atlas production readiness.
 
