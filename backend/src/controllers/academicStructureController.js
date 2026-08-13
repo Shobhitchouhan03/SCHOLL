@@ -562,12 +562,19 @@ export const getClasses = async (req, res) => {
   try {
     const schoolId = getTenantSchoolId(req);
     const { sessionId } = req.query;
-    const query = { schoolId };
+    let query = { schoolId };
     if (sessionId) query.academicSessionId = sessionId;
 
-    const classes = await SchoolClass.find(query).sort({ numericOrder: 1 });
+    let classes = await SchoolClass.find(query).sort({ numericOrder: 1, name: 1 });
+
+    // Fallback: If sessionId filter returned 0 classes, retrieve all tenant classes
+    if (classes.length === 0 && sessionId) {
+      classes = await SchoolClass.find({ schoolId }).sort({ numericOrder: 1, name: 1 });
+    }
+
     return res.status(200).json({ success: true, classes });
   } catch (err) {
+    console.error('Fetch classes error:', err);
     return res.status(500).json({ success: false, message: 'Failed to fetch classes.' });
   }
 };
@@ -576,13 +583,22 @@ export const getSections = async (req, res) => {
   try {
     const schoolId = getTenantSchoolId(req);
     const { sessionId, classId } = req.query;
-    const query = { schoolId };
+    let query = { schoolId };
     if (sessionId) query.academicSessionId = sessionId;
     if (classId) query.classId = classId;
 
-    const sections = await Section.find(query).populate('classId', 'name displayName');
+    let sections = await Section.find(query).populate('classId', 'name displayName');
+
+    // Fallback: If sessionId filter returned 0 sections, retrieve all tenant sections
+    if (sections.length === 0 && sessionId) {
+      const fallbackQuery = { schoolId };
+      if (classId) fallbackQuery.classId = classId;
+      sections = await Section.find(fallbackQuery).populate('classId', 'name displayName');
+    }
+
     return res.status(200).json({ success: true, sections });
   } catch (err) {
+    console.error('Fetch sections error:', err);
     return res.status(500).json({ success: false, message: 'Failed to fetch sections.' });
   }
 };
@@ -591,12 +607,19 @@ export const getSubjects = async (req, res) => {
   try {
     const schoolId = getTenantSchoolId(req);
     const { sessionId } = req.query;
-    const query = { schoolId };
+    let query = { schoolId };
     if (sessionId) query.academicSessionId = sessionId;
 
-    const subjects = await Subject.find(query).populate('applicableClassIds', 'name displayName');
+    let subjects = await Subject.find(query).populate('applicableClassIds', 'name displayName');
+
+    // Fallback: If sessionId filter returned 0 subjects, retrieve all tenant subjects
+    if (subjects.length === 0 && sessionId) {
+      subjects = await Subject.find({ schoolId }).populate('applicableClassIds', 'name displayName');
+    }
+
     return res.status(200).json({ success: true, subjects });
   } catch (err) {
+    console.error('Fetch subjects error:', err);
     return res.status(500).json({ success: false, message: 'Failed to fetch subjects.' });
   }
 };

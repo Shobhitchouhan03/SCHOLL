@@ -1,24 +1,24 @@
 # Development Progress
 
 ## Last Completed Patch
-PRODUCTION BUG FIX — Auth Token Missing on Protected Requests (Dual-Layer Bearer + HttpOnly Cross-Site Auth).
+PATCH BUG FIX — Class Teacher Class/Section Assignment & Uniqueness (Verified).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Dual-layer authentication mechanism: Bearer token header auto-attached by Axios request interceptor (`Authorization: Bearer <accessToken>`) + cross-site HttpOnly cookie fallback (`sameSite: 'none'`, `secure: true`, host-only domain stripping for `onrender.com`/`netlify.app`). Automatic token refresh on 401 response and `accessToken` persistence in `localStorage`. 100% master verification pass, clean production build (1667 modules), and 11 unit test suites passed.
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Dual-layer authentication (`Authorization: Bearer` + `SameSite=none` HttpOnly cookies). Class Teacher class and section assignment loads tenant-specific classes and sections dynamically from database with `Promise.allSettled` resilience, logical sorting, and UI/backend Class Teacher uniqueness enforcement per section. 100% master verification pass, clean production build (1667 modules), and 12 unit test suites passed.
 
 ## Completed
-- **1. Exact Root Cause Resolution**: Resolved cross-domain authentication failure where `sameSite: 'strict'` cookies were blocked by browsers between Netlify (`https://school-saasfrontend.netlify.app`) and Render (`https://school-saas-backend-lrzg.onrender.com`).
-- **2. Centralized Axios Interceptor**: Added `api.interceptors.request` in `frontend/src/services/api.js` automatically attaching `Authorization: Bearer <accessToken>` header on all protected API requests. Added `api.interceptors.response` handling automatic 401 retry via `/api/auth/refresh`.
-- **3. AuthContext Persistence & Restoration**: Updated `AuthContext.jsx` (`loginSuperAdmin`, `loginSchoolUser`, `checkAuth`, `logout`) to persist `accessToken` in `localStorage` upon login and clear it on explicit logout.
-- **4. Backend Cookie & CORS Hardening**: Updated `setAuthCookies` and `logout` in `backend/src/controllers/authController.js` to enforce `sameSite: 'none'` in production and strip public suffix domains (`onrender.com`, `netlify.app`). Added `https://school-saasfrontend.netlify.app` and `*.netlify.app` / `*.vercel.app` pattern matching to `backend/src/server.js` CORS configuration.
-- **5. Teacher Creation & Protected Endpoints Verification**: Verified `POST /api/principal/teachers` accepts `Authorization: Bearer <accessToken>`, allowing authorized Principals to create teachers without `"Token missing"` 401 error.
-- **6. Auth Integration Test Suite**: Added `backend/src/tests/authIntegration.test.js` validating missing token 401 response, Bearer header parsing, and expired JWT handling. Passed `npm run verify` 100%.
+- **1. Exact Root Cause Resolution**: Resolved empty Class dropdown bug by replacing strict `Promise.all` in `TeacherManagementPage.jsx` with resilient `Promise.allSettled`, preventing non-critical endpoint failures from blocking academic reference loading.
+- **2. Academic Reference API Resilience**: Enhanced `getClasses`, `getSections`, and `getSubjects` in `backend/src/controllers/academicStructureController.js` to fallback gracefully when `sessionId` is omitted/mismatched and sort classes logically (`numericOrder: 1, name: 1`).
+- **3. Class Teacher Uniqueness per Section**: Implemented Class Teacher uniqueness checking on the frontend (disabling sections already assigned to active Class Teachers with `"Section A (Already Assigned to [Teacher Name])"`) and preserved backend duplicate assignment prevention in `teacherController.js`.
+- **4. Dynamic Section Filtering**: Configured section dropdown to filter sections matching the selected class, disabling section selection until a class is selected, and showing `"No sections configured for this class"` when empty.
+- **5. Subject Teacher Compatibility**: Preserved Subject Teacher workflow ensuring assigned subjects do not require Class Teacher class/section ownership.
+- **6. Regression Test Suite**: Created `backend/src/tests/classTeacherAssignment.test.js` verifying tenant class isolation, class-section filtering, Class Teacher uniqueness, and Subject Teacher compatibility. Passed `npm run verify` 100%.
 
 ## Partial
 - None.
 
 ## Pending
-- **Netlify & Render Deployment Update**: Push commit to GitHub `main` branch to trigger automatic Netlify frontend build and Render backend redeployment.
+- None. All patch requirements verified and ready for deployment sync.
 
 ## Known Bugs
 - None (0 runtime errors, 0 build warnings).

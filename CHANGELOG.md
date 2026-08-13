@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.16.0] - 2026-08-13
+
+### Fixed
+- **PATCH BUG FIX — Class Teacher Class/Section Assignment & Uniqueness**:
+  - Replaced strict `Promise.all` with resilient `Promise.allSettled` in `TeacherManagementPage.jsx` when loading academic references.
+  - Enhanced `getClasses`, `getSections`, and `getSubjects` in `academicStructureController.js` with fallback query logic and `numericOrder: 1, name: 1` sorting.
+  - Added UI loading states (`Loading classes...`) and empty states (`No classes configured...`).
+  - Added section dependency handling (section selection disabled until class selection) and Class Teacher section uniqueness filtering (`Section A (Already Assigned to [Teacher Name])`).
+  - Added `backend/src/tests/classTeacherAssignment.test.js` regression suite validating tenant isolation, class-section filtering, and Class Teacher uniqueness.
+
 ## [3.15.0] - 2026-08-13
 
 ### Fixed

@@ -121,21 +121,38 @@ const TeacherManagementPage = () => {
     emergencyContact: '',
   });
 
+  const [loadingAcademic, setLoadingAcademic] = useState(false);
+
   // Fetch academic structure & teachers
   const fetchAcademicReferences = async () => {
     try {
-      const [clsRes, secRes, subRes, leaveRes] = await Promise.all([
+      setLoadingAcademic(true);
+      const [clsRes, secRes, subRes] = await Promise.allSettled([
         api.get('/principal/classes'),
         api.get('/principal/sections'),
         api.get('/principal/subjects'),
-        api.get('/principal/teachers/leaves'),
       ]);
-      if (clsRes.data.success) setAvailableClasses(clsRes.data.classes || []);
-      if (secRes.data.success) setAvailableSections(secRes.data.sections || []);
-      if (subRes.data.success) setAvailableSubjects(subRes.data.subjects || []);
-      if (leaveRes.data.success) setLeavesList(leaveRes.data.leaves || []);
+
+      if (clsRes.status === 'fulfilled' && clsRes.value.data?.success) {
+        setAvailableClasses(clsRes.value.data.classes || []);
+      }
+      if (secRes.status === 'fulfilled' && secRes.value.data?.success) {
+        setAvailableSections(secRes.value.data.sections || []);
+      }
+      if (subRes.status === 'fulfilled' && subRes.value.data?.success) {
+        setAvailableSubjects(subRes.value.data.subjects || []);
+      }
+
+      try {
+        const leaveRes = await api.get('/principal/teachers/leaves');
+        if (leaveRes.data?.success) setLeavesList(leaveRes.data.leaves || []);
+      } catch (lErr) {
+        console.warn('Leaves fetch non-critical warning:', lErr);
+      }
     } catch (err) {
       console.error('Fetch references error:', err);
+    } finally {
+      setLoadingAcademic(false);
     }
   };
 
@@ -962,13 +979,17 @@ const TeacherManagementPage = () => {
                       <label className="block text-[10px] font-bold text-textMuted uppercase">Class *</label>
                       <select
                         value={formData.classTeacherClassId}
-                        onChange={(e) => setFormData({ ...formData, classTeacherClassId: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, classTeacherClassId: e.target.value, classTeacherSectionId: '' })}
                         className="w-full px-3 py-1.5 bg-white border border-almond/60 rounded-xl text-xs focus:outline-none focus:border-chestnut"
                       >
                         <option value="">Select Class</option>
+                        {loadingAcademic && <option value="" disabled>Loading classes...</option>}
+                        {!loadingAcademic && availableClasses.length === 0 && (
+                          <option value="" disabled>No classes configured. Add classes in Academic Setup first.</option>
+                        )}
                         {availableClasses.map((c) => (
                           <option key={c._id} value={c._id}>
-                            {c.name}
+                            {c.displayName || c.name}
                           </option>
                         ))}
                       </select>
@@ -979,16 +1000,32 @@ const TeacherManagementPage = () => {
                       <select
                         value={formData.classTeacherSectionId}
                         onChange={(e) => setFormData({ ...formData, classTeacherSectionId: e.target.value })}
-                        className="w-full px-3 py-1.5 bg-white border border-almond/60 rounded-xl text-xs focus:outline-none focus:border-chestnut"
+                        disabled={!formData.classTeacherClassId}
+                        className="w-full px-3 py-1.5 bg-white border border-almond/60 rounded-xl text-xs focus:outline-none focus:border-chestnut disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
-                        <option value="">Select Section</option>
-                        {availableSections
-                          .filter((s) => !formData.classTeacherClassId || (s.classId?._id || s.classId) === formData.classTeacherClassId)
-                          .map((sec) => (
-                            <option key={sec._id} value={sec._id}>
-                              {sec.classId?.name} - Section {sec.name}
-                            </option>
-                          ))}
+                        {!formData.classTeacherClassId ? (
+                          <option value="">Select Class First</option>
+                        ) : (
+                          <option value="">Select Section</option>
+                        )}
+                        {formData.classTeacherClassId &&
+                          availableSections
+                            .filter((s) => (s.classId?._id || s.classId) === formData.classTeacherClassId)
+                            .map((sec) => {
+                              const existingCT = teachers.find(
+                                (t) => t.isClassTeacher && (t.classTeacherSectionId?._id || t.classTeacherSectionId) === sec._id
+                              );
+                              const isOccupied = Boolean(existingCT);
+                              return (
+                                <option key={sec._id} value={sec._id} disabled={isOccupied}>
+                                  Section {sec.name} {isOccupied ? `(Already Assigned to ${existingCT.name})` : ''}
+                                </option>
+                              );
+                            })}
+                        {formData.classTeacherClassId &&
+                          availableSections.filter((s) => (s.classId?._id || s.classId) === formData.classTeacherClassId).length === 0 && (
+                            <option value="" disabled>No sections configured for this class</option>
+                          )}
                       </select>
                     </div>
                   </div>
@@ -1142,13 +1179,17 @@ const TeacherManagementPage = () => {
                       <label className="block text-[10px] font-bold text-textMuted uppercase">Class *</label>
                       <select
                         value={formData.classTeacherClassId}
-                        onChange={(e) => setFormData({ ...formData, classTeacherClassId: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, classTeacherClassId: e.target.value, classTeacherSectionId: '' })}
                         className="w-full px-3 py-1.5 bg-white border border-almond/60 rounded-xl text-xs focus:outline-none focus:border-chestnut"
                       >
                         <option value="">Select Class</option>
+                        {loadingAcademic && <option value="" disabled>Loading classes...</option>}
+                        {!loadingAcademic && availableClasses.length === 0 && (
+                          <option value="" disabled>No classes configured. Add classes in Academic Setup first.</option>
+                        )}
                         {availableClasses.map((c) => (
                           <option key={c._id} value={c._id}>
-                            {c.name}
+                            {c.displayName || c.name}
                           </option>
                         ))}
                       </select>
@@ -1159,16 +1200,32 @@ const TeacherManagementPage = () => {
                       <select
                         value={formData.classTeacherSectionId}
                         onChange={(e) => setFormData({ ...formData, classTeacherSectionId: e.target.value })}
-                        className="w-full px-3 py-1.5 bg-white border border-almond/60 rounded-xl text-xs focus:outline-none focus:border-chestnut"
+                        disabled={!formData.classTeacherClassId}
+                        className="w-full px-3 py-1.5 bg-white border border-almond/60 rounded-xl text-xs focus:outline-none focus:border-chestnut disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
-                        <option value="">Select Section</option>
-                        {availableSections
-                          .filter((s) => !formData.classTeacherClassId || (s.classId?._id || s.classId) === formData.classTeacherClassId)
-                          .map((sec) => (
-                            <option key={sec._id} value={sec._id}>
-                              {sec.classId?.name} - Section {sec.name}
-                            </option>
-                          ))}
+                        {!formData.classTeacherClassId ? (
+                          <option value="">Select Class First</option>
+                        ) : (
+                          <option value="">Select Section</option>
+                        )}
+                        {formData.classTeacherClassId &&
+                          availableSections
+                            .filter((s) => (s.classId?._id || s.classId) === formData.classTeacherClassId)
+                            .map((sec) => {
+                              const existingCT = teachers.find(
+                                (t) => t.isClassTeacher && (t.classTeacherSectionId?._id || t.classTeacherSectionId) === sec._id && t._id !== selectedTeacher?._id
+                              );
+                              const isOccupied = Boolean(existingCT);
+                              return (
+                                <option key={sec._id} value={sec._id} disabled={isOccupied}>
+                                  Section {sec.name} {isOccupied ? `(Already Assigned to ${existingCT.name})` : ''}
+                                </option>
+                              );
+                            })}
+                        {formData.classTeacherClassId &&
+                          availableSections.filter((s) => (s.classId?._id || s.classId) === formData.classTeacherClassId).length === 0 && (
+                            <option value="" disabled>No sections configured for this class</option>
+                          )}
                       </select>
                     </div>
                   </div>

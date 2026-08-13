@@ -41,6 +41,7 @@ try {
     'src/tests/step5g.test.js',
     'src/tests/step5h.test.js',
     'src/tests/authIntegration.test.js',
+    'src/tests/classTeacherAssignment.test.js',
   ];
 
   for (const testFile of unitTests) {
