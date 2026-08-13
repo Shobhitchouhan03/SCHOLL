@@ -1,24 +1,23 @@
 # Development Progress
 
 ## Last Completed Patch
-PATCH STEP 6C — Production Backend Deployment Preparation & Render Setup (Refined Blueprint — Awaiting User Action).
+PATCH STEP 6D — Frontend Production Deployment & E2E Integration (Awaiting Vercel Deployment).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Fully prepared for Render backend deployment: enabled Express `trust proxy` (`backend/src/server.js`), refined `render.yaml` blueprint with dynamic `PORT` allocation and auto-generated JWT secrets (`generateValue: true`), verified MongoDB Atlas environment connection handling, audited CORS and HttpOnly cookie options, documented 12 exact click-by-click Render dashboard instructions, and pushed changes to GitHub (`https://github.com/Shobhitchouhan03/SCHOLL.git`).
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Production backend is live on Render (`https://school-saas-backend-lrzg.onrender.com`) with `/api/health` returning `200 OK`. Frontend configuration prepared with `VITE_API_BASE_URL=https://school-saas-backend-lrzg.onrender.com/api`, SPA rewrite configurations (`vercel.json` and `_redirects`), and 100% master verification pass.
 
 ## Completed
-- **1. Backend Production Configuration**: Verified Root Directory (`backend`), Build Command (`npm install`), Start Command (`npm start`), and Health Check (`/api/health`). Added `app.set('trust proxy', 1)` in `backend/src/server.js`.
-- **2. Render Infrastructure Blueprint Refinement**: Updated `render.yaml` to remove hardcoded `PORT` value, allowing Render to dynamically supply `PORT` via `process.env.PORT || 5000`. Configured JWT access/refresh secrets with `generateValue: true` and dashboard sync for sensitive domain/DB variables.
-- **3. Environment Variable Specification**: Formulated exact list of 8 dashboard-supplied and auto-generated backend environment variables (`NODE_ENV`, `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CLIENT_URL`, `PUBLIC_APP_URL`, `ROOT_DOMAIN`, `COOKIE_DOMAIN`).
-- **4. MongoDB Atlas Production Audit**: Confirmed existing Atlas cluster connection is 100% production-ready, using environment-injected URI (`MONGODB_URI`), strict multi-tenant index isolation, and resilient 5000ms selection timeout.
-- **5. Master Verification & Git Sync**: Executed `npm run build --prefix frontend` (3.36s, 1667 modules) and `npm run verify` (100% pass across all 10 unit test suites). Pushed codebase to GitHub remote `origin/main`.
+- **1. Live Render Backend Health Verification**: Verified live Render backend API (`https://school-saas-backend-lrzg.onrender.com/api/health`) returning `{"status":"OK"}`.
+- **2. Frontend Production Environment Setup**: Updated `frontend/.env.example` specifying `VITE_API_BASE_URL=https://school-saas-backend-lrzg.onrender.com/api`.
+- **3. Single Page Application (SPA) Routing Rewrites**: Confirmed React Router SPA rewrites in `frontend/public/vercel.json` (`/ (.*) -> /index.html`) and `frontend/public/_redirects` (`/* /index.html 200`).
+- **4. Master Verification & Git Sync**: Executed `npm run build --prefix frontend` (4.13s, 1667 modules) and `npm run verify` (100% pass across all 10 unit test suites). Pushed codebase to GitHub remote `origin/main`.
 
 ## Partial
 - None.
 
 ## Pending
-- **Step 6C Render Deployment**: Awaiting user manual deployment execution on Render Dashboard.
-- **Step 6D**: Live Frontend Deployment & Production E2E Health Check.
+- **Step 6D Frontend Deployment**: Awaiting user manual Vercel / Netlify frontend deployment.
+- **Backend CORS Update**: Update Render `CLIENT_URL` environment variable to match final deployed Vercel frontend URL.
 
 ## Known Bugs
 - None (0 runtime errors, 0 build warnings).

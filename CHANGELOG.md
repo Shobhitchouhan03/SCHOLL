@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.14.0] - 2026-08-13
+
+### Added
+- **STEP 6D — Frontend Production Deployment & E2E Integration**:
+  - Verified live Render backend API status (`https://school-saas-backend-lrzg.onrender.com/api/health` returning `200 OK`).
+  - Updated `frontend/.env.example` specifying `VITE_API_BASE_URL=https://school-saas-backend-lrzg.onrender.com/api`.
+  - Formulated step-by-step Vercel frontend deployment instructions.
+
 ## [3.13.0] - 2026-08-12
 
 ### Added
