@@ -21,102 +21,69 @@ export const createStudent = async (req, res) => {
   try {
     const schoolId = getTenantSchoolId(req);
 
+    let finalAcademicSessionId = req.body.currentAcademicSessionId;
+    let finalClassId = req.body.currentClassId;
+    let finalSectionId = req.body.currentSectionId;
+
     if (req.user.role === 'teacher') {
       const teacher = await resolveTeacherProfile(req);
+      if (!teacher) {
+        return res.status(403).json({
+          success: false,
+          message: 'Teacher profile not found for this account. Contact your administrator.',
+        });
+      }
+
       const isClassTeacherRole = Boolean(
-        teacher && (
-          teacher.isClassTeacher ||
-          teacher.teacherType === 'Class Teacher' ||
-          teacher.teacherType === 'Class & Subject Teacher' ||
-          teacher.classTeacherClassId
-        )
+        teacher.isClassTeacher ||
+        teacher.teacherType === 'Class Teacher' ||
+        teacher.teacherType === 'Class & Subject Teacher' ||
+        Boolean(teacher.classTeacherClassId)
       );
 
-      if (!isClassTeacherRole) {
+      if (!isClassTeacherRole && !teacher.canAdmitStudents) {
         return res.status(403).json({
           success: false,
           message: 'Forbidden: Only authorized Class Teachers can admit new students.',
         });
       }
-    }
-    const {
-      // Student details
-      firstName,
-      middleName,
-      lastName,
-      admissionNumber,
-      rollNumber,
-      dateOfBirth,
-      gender,
-      bloodGroup,
-      photoUrl,
-      aadhaarNumber,
-      nationality,
-      religion,
-      category,
-      house,
-      address,
-      admissionDate,
-      previousSchool,
-      medicalNotes,
-      emergencyContact,
-      // Academic Placement
-      currentAcademicSessionId,
-      currentClassId,
-      currentSectionId,
-      // Family Account option: 'new' or 'link'
-      familyOption,
-      existingFamilyId,
-      // New Family Account details (if familyOption === 'new')
-      parentLoginId,
-      parentPassword,
-      primaryGuardian,
-      secondaryGuardian,
-    } = req.body;
 
-    if (!firstName || !admissionNumber || !dateOfBirth || !gender || !currentAcademicSessionId || !currentClassId || !currentSectionId) {
-      return res.status(400).json({
-        success: false,
-        message: 'First name, admission number, Date of Birth, Gender, Academic Session, Class, and Section are required.',
-      });
-    }
+      const assignedClassId = teacher.classTeacherClassId?._id || teacher.classTeacherClassId;
+      const assignedSectionId = teacher.classTeacherSectionId?._id || teacher.classTeacherSectionId;
 
-    const formattedAdmissionNumber = admissionNumber.toUpperCase().trim();
-
-    // 1. Verify admission number uniqueness within school
-    const existingStudent = await Student.findOne({ schoolId, admissionNumber: formattedAdmissionNumber });
-    if (existingStudent) {
-      return res.status(409).json({
-        success: false,
-        message: `Admission number '${formattedAdmissionNumber}' is already in use at this school.`,
-      });
-    }
-
-    // 2. Verify roll number uniqueness within class & section if supplied
-    if (rollNumber) {
-      const dupRoll = await Student.findOne({
-        schoolId,
-        currentAcademicSessionId,
-        currentClassId,
-        currentSectionId,
-        rollNumber: Number(rollNumber),
-      });
-      if (dupRoll) {
-        return res.status(409).json({
+      if (!assignedClassId || !assignedSectionId) {
+        return res.status(403).json({
           success: false,
-          message: `Roll number '${rollNumber}' is already assigned in this class and section.`,
+          message: 'Class Teacher has no assigned class or section for student admission.',
         });
       }
+
+      if (finalClassId && String(finalClassId) !== String(assignedClassId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Class Teachers can only add students to their assigned class.',
+        });
+      }
+
+      if (finalSectionId && String(finalSectionId) !== String(assignedSectionId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Class Teachers can only add students to their assigned section.',
+        });
+      }
+
+      finalClassId = assignedClassId;
+      finalSectionId = assignedSectionId;
     }
 
-    // 3. Check Teacher permissions if caller is a teacher
-    if (req.user.role === 'teacher') {
-      const teacherProfile = await Teacher.findOne({ userId: req.user._id, schoolId });
-      if (!teacherProfile || !teacherProfile.isClassTeacher) {
-        return res.status(403).json({ success: false, message: 'Only authorized Class Teachers can admit new students.' });
-      }
-      if (String(teacherProfile.classTeacherSectionId) !== String(currentSectionId)) {
-        return res.status(403).json({ success: false, message: 'Class Teachers can only add students to their assigned class and section.' });
+    // Auto-resolve active academic session if missing
+    if (!finalAcademicSessionId) {
+      const activeSession = await AcademicSession.findOne({ schoolId, isCurrent: true });
+      if (activeSession) {
+        finalAcademicSessionId = activeSession._id;
+      } else {
+        const anySession = await AcademicSession.findOne({ schoolId });
+        if (anySession) finalAcademicSessionId = anySession._id;
       }
     }
 
@@ -224,9 +191,9 @@ export const createStudent = async (req, res) => {
       previousSchool: (previousSchool || '').trim(),
       medicalNotes: (medicalNotes || '').trim(),
       emergencyContact: (emergencyContact || '').trim(),
-      currentAcademicSessionId,
-      currentClassId,
-      currentSectionId,
+      currentAcademicSessionId: finalAcademicSessionId,
+      currentClassId: finalClassId,
+      currentSectionId: finalSectionId,
       parentAccountId: parentProfileRecord._id,
       status: 'active',
       createdBy: req.user._id,
@@ -236,9 +203,9 @@ export const createStudent = async (req, res) => {
     await StudentAcademicEnrollment.create({
       schoolId,
       studentId: newStudent._id,
-      academicSessionId: currentAcademicSessionId,
-      classId: currentClassId,
-      sectionId: currentSectionId,
+      academicSessionId: finalAcademicSessionId,
+      classId: finalClassId,
+      sectionId: finalSectionId,
       rollNumber: rollNumber ? Number(rollNumber) : null,
       status: 'active',
       createdBy: req.user._id,

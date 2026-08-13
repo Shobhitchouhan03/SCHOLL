@@ -1,18 +1,18 @@
 # Development Progress
 
 ## Last Completed Patch
-PATCH BUG FIX — Class Teacher Class/Section Assignment & Uniqueness (Verified).
+PATCH FIX — Teacher Profile Resolution + Manual Student Admission by Class Teacher (Verified).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Dual-layer authentication (`Authorization: Bearer` + `SameSite=none` HttpOnly cookies). Class Teacher class and section assignment loads tenant-specific classes and sections dynamically from database with `Promise.allSettled` resilience, logical sorting, and UI/backend Class Teacher uniqueness enforcement per section. 100% master verification pass, clean production build (1667 modules), and 12 unit test suites passed.
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Centralized `resolveTeacherProfile` with multi-tenant safe auto-repair linking `User.id` <-> `Teacher.userId` and legacy matchers (`loginId`, `employeeId`, `email`, `name`). Class Teacher manual student admission capability with strict server-side class/section lockdown (`classTeacherClassId` + `classTeacherSectionId`) and default Subject Teacher admission restriction. 100% master verification pass, clean production build (1667 modules), and 13 unit test suites passed.
 
 ## Completed
-- **1. Exact Root Cause Resolution**: Resolved empty Class dropdown bug by replacing strict `Promise.all` in `TeacherManagementPage.jsx` with resilient `Promise.allSettled`, preventing non-critical endpoint failures from blocking academic reference loading.
-- **2. Academic Reference API Resilience**: Enhanced `getClasses`, `getSections`, and `getSubjects` in `backend/src/controllers/academicStructureController.js` to fallback gracefully when `sessionId` is omitted/mismatched and sort classes logically (`numericOrder: 1, name: 1`).
-- **3. Class Teacher Uniqueness per Section**: Implemented Class Teacher uniqueness checking on the frontend (disabling sections already assigned to active Class Teachers with `"Section A (Already Assigned to [Teacher Name])"`) and preserved backend duplicate assignment prevention in `teacherController.js`.
-- **4. Dynamic Section Filtering**: Configured section dropdown to filter sections matching the selected class, disabling section selection until a class is selected, and showing `"No sections configured for this class"` when empty.
-- **5. Subject Teacher Compatibility**: Preserved Subject Teacher workflow ensuring assigned subjects do not require Class Teacher class/section ownership.
-- **6. Regression Test Suite**: Created `backend/src/tests/classTeacherAssignment.test.js` verifying tenant class isolation, class-section filtering, Class Teacher uniqueness, and Subject Teacher compatibility. Passed `npm run verify` 100%.
+- **1. Teacher Profile Resolution & Legacy Repair**: Enhanced `resolveTeacherProfile` in `backend/src/utils/teacherResolver.js` with multi-tenant safe fallback matching (`employeeId`, `email`, `name`, single unlinked profile) within the same `schoolId`, automatically auto-repairing legacy teacher accounts (like "CHAUHAN") on first request.
+- **2. Class Teacher Student Admission**: Implemented student admission capability for Class Teachers via `POST /api/teacher/students`. Server strictly locks `currentClassId` and `currentSectionId` to the Class Teacher's assigned class and section, rejecting attempts to admit into non-assigned classes/sections with `403 Forbidden`.
+- **3. Subject Teacher Restriction**: Restricted manual student admission for Subject Teachers by default unless designated with Class Teacher role or explicit `canAdmitStudents` permission.
+- **4. Automatic Parent Credential Generation**: Configured student admission flow to auto-generate Parent `User` and `ParentProfile` accounts with credentials returned upon admission and linked seamlessly.
+- **5. Frontend UI Integration**: Updated `TeacherStudentDirectoryPage.jsx` and `TeacherAddStudentPage.jsx` with read-only assigned class/section display, `Promise.allSettled` reference loading, and parent credential display alerts.
+- **6. Regression Test Suite**: Created `backend/src/tests/teacherProfileAdmission.test.js` validating profile resolution, tenant isolation, Class Teacher lockdown, and Subject Teacher restriction. Passed `npm run verify` 100%.
 
 ## Partial
 - None.

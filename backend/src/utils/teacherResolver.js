@@ -28,13 +28,22 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
     isActive: true,
   });
 
-  // 2. Secondary fallback lookup by schoolId + loginId / employeeId / email
-  if (!teacher && (user.loginId || user.email)) {
+  // 2. Secondary fallback lookup by schoolId + loginId / employeeId / email / name
+  if (!teacher) {
     const searchConditions = [];
+
     if (user.loginId) {
       searchConditions.push({ employeeId: user.loginId.toUpperCase() });
       searchConditions.push({ email: user.loginId.toLowerCase() });
+      const escapedLogin = user.loginId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      searchConditions.push({ name: new RegExp(`^${escapedLogin}$`, 'i') });
     }
+
+    if (user.name) {
+      const escapedName = user.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      searchConditions.push({ name: new RegExp(`^${escapedName}$`, 'i') });
+    }
+
     if (user.email) {
       searchConditions.push({ email: user.email.toLowerCase() });
     }
@@ -46,11 +55,26 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
         $or: searchConditions,
       });
 
-      // 3. Auto-repair: link userId to Teacher document if found
-      if (teacher && !teacher.userId) {
+      // Auto-repair: link userId to Teacher document if found
+      if (teacher && (!teacher.userId || String(teacher.userId) !== String(user._id))) {
         teacher.userId = user._id;
         await teacher.save();
       }
+    }
+  }
+
+  // 3. Fallback: Single unlinked teacher profile in same school
+  if (!teacher) {
+    const unlinkedTeachers = await Teacher.find({
+      schoolId,
+      isActive: true,
+      $or: [{ userId: { $exists: false } }, { userId: null }],
+    });
+
+    if (unlinkedTeachers.length === 1) {
+      teacher = unlinkedTeachers[0];
+      teacher.userId = user._id;
+      await teacher.save();
     }
   }
 

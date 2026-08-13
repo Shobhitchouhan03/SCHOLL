@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.17.0] - 2026-08-13
+
+### Fixed & Added
+- **PATCH FIX — Teacher Profile Resolution + Manual Student Admission by Class Teacher**:
+  - Enhanced `resolveTeacherProfile` in `backend/src/utils/teacherResolver.js` with multi-tenant safe fallback matching (`employeeId`, `email`, `name`, single unlinked profile) within the same `schoolId`, automatically auto-repairing legacy teacher accounts (such as "CHAUHAN") on first request.
+  - Implemented Class Teacher manual student admission capability via `POST /api/teacher/students`.
+  - Enforced strict server-side class/section lockdown (`currentClassId` and `currentSectionId` overridden to `classTeacherClassId` and `classTeacherSectionId`), returning `403 Forbidden` for non-assigned class/section attempts.
+  - Restricted Subject Teachers from manual student admission by default unless explicitly granted `canAdmitStudents` permission.
+  - Integrated auto-parent account creation (`User` + `ParentProfile`) and credential display.
+  - Created `backend/src/tests/teacherProfileAdmission.test.js` regression suite validating profile resolution, tenant isolation, and Class Teacher lockdown.
+
 ## [3.16.0] - 2026-08-13
 
 ### Fixed

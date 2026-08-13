@@ -27,16 +27,17 @@ const TeacherStudentDirectoryPage = () => {
   const fetchTeacherStudents = async () => {
     try {
       setLoading(true);
-      const [stdRes, profRes] = await Promise.all([
+      const [stdRes, profRes] = await Promise.allSettled([
         api.get('/teacher/students', { params: { search } }),
         api.get('/teacher/me'),
       ]);
-      if (stdRes.data.success) {
-        setStudents(stdRes.data.students || []);
+
+      if (stdRes.status === 'fulfilled' && stdRes.value.data?.success) {
+        setStudents(stdRes.value.data.students || []);
       }
-      if (profRes.data.success) {
-        setTeacherProfile(profRes.data.teacher);
-        setTeacherCapabilities(profRes.data.teacherCapabilities || null);
+      if (profRes.status === 'fulfilled' && profRes.value.data?.success) {
+        setTeacherProfile(profRes.value.data.teacher);
+        setTeacherCapabilities(profRes.value.data.teacherCapabilities || null);
       }
     } catch (err) {
       console.error('Fetch teacher students error:', err);

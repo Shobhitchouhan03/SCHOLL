@@ -72,22 +72,40 @@ const TeacherAddStudentPage = () => {
       setSaving(true);
       setMessage({ type: '', text: '' });
 
-      const targetClassId = teacherProfile?.classTeacherClassId?._id || teacherProfile?.classTeacherClassId || teacherProfile?.assignedClassIds?.[0]?._id || teacherProfile?.assignedClassIds?.[0];
-      const targetSectionId = teacherProfile?.classTeacherSectionId?._id || teacherProfile?.classTeacherSectionId || teacherProfile?.assignedSectionIds?.[0]?._id || teacherProfile?.assignedSectionIds?.[0];
+      const targetClassId = teacherProfile?.classTeacherClassId?._id || teacherProfile?.classTeacherClassId;
+      const targetSectionId = teacherProfile?.classTeacherSectionId?._id || teacherProfile?.classTeacherSectionId;
+
+      const nameParts = formData.fullName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Student';
 
       const payload = {
         ...formData,
+        firstName,
+        lastName,
+        dateOfBirth: formData.dob || '2015-01-01',
         currentClassId: targetClassId,
         currentSectionId: targetSectionId,
+        familyOption: 'new',
+        parentLoginId: `PARENT_${formData.admissionNumber.toUpperCase().trim()}`,
+        parentPassword: `Parent@${formData.admissionNumber.toUpperCase().trim()}`,
+        primaryGuardian: {
+          name: formData.guardianName,
+          phone: formData.guardianPhone,
+          email: formData.guardianEmail,
+          relationship: formData.guardianRelation || 'Father',
+        },
       };
 
       const res = await api.post('/teacher/students', payload);
       if (res.data.success) {
+        const creds = res.data.createdCredentials;
+        const credText = creds ? ` | Parent Login ID: ${creds.loginId} (Password: ${creds.rawPassword})` : '';
         setMessage({
           type: 'success',
-          text: `Student ${res.data.student.fullName} admitted successfully into your class!`,
+          text: `Student ${res.data.student.fullName} admitted successfully! ${credText}`,
         });
-        setTimeout(() => navigate('/teacher/students'), 1500);
+        setTimeout(() => navigate('/teacher/students'), 2500);
       }
     } catch (err) {
       setMessage({
