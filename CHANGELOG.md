@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.15.0] - 2026-08-13
+
+### Fixed
+- **PRODUCTION BUG FIX — Authentication Token Missing on Protected Requests**:
+  - Implemented dual-layer authentication: central Axios request interceptor in `frontend/src/services/api.js` automatically attaching `Authorization: Bearer <accessToken>` header on all protected requests + `sameSite: 'none'` cross-site HttpOnly cookie fallback.
+  - Persisted `accessToken` in `localStorage` in `AuthContext.jsx` upon login/session check and cleared it on logout.
+  - Configured automatic token refresh retry in `api.js` response interceptor on 401 response.
+  - Explicitly authorized `https://school-saasfrontend.netlify.app` and `*.netlify.app` origins in `backend/src/server.js` CORS configuration.
+  - Added `backend/src/tests/authIntegration.test.js` regression suite validating Bearer token header parsing, missing token 401 handling, and expired JWT rejection.
+
 ## [3.14.0] - 2026-08-13
 
 ### Added

@@ -50,6 +50,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
   process.env.PUBLIC_APP_URL,
+  'https://school-saasfrontend.netlify.app',
   'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
@@ -64,6 +65,11 @@ app.use(
       if (!origin) return callback(null, true);
       
       if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Dynamic Netlify / Vercel deployment matching
+      if (origin.endsWith('.netlify.app') || origin.endsWith('.vercel.app')) {
         return callback(null, true);
       }
 

@@ -17,13 +17,15 @@ const generateTokens = (userId, role, schoolId = null) => {
 // Set HttpOnly Cookies on Response
 const setAuthCookies = (res, accessToken, refreshToken) => {
   const isProduction = process.env.NODE_ENV === 'production';
-  const domain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN !== 'localhost' ? process.env.COOKIE_DOMAIN : undefined;
+  const rawDomain = process.env.COOKIE_DOMAIN;
+  const isPublicSuffix = rawDomain && (rawDomain.includes('onrender.com') || rawDomain.includes('netlify.app') || rawDomain === 'localhost');
+  const domain = (rawDomain && !isPublicSuffix) ? rawDomain : undefined;
 
   const accessOptions = {
     expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
+    sameSite: isProduction ? 'none' : 'lax',
     ...(domain && { domain }),
   };
 
@@ -31,7 +33,7 @@ const setAuthCookies = (res, accessToken, refreshToken) => {
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax',
+    sameSite: isProduction ? 'none' : 'lax',
     ...(domain && { domain }),
   };
 
@@ -221,7 +223,7 @@ export const schoolUserLogin = async (req, res) => {
 // @route   POST /api/auth/refresh
 export const refreshToken = async (req, res) => {
   try {
-    const refreshTokenCookie = req.cookies?.refreshToken;
+    const refreshTokenCookie = req.cookies?.refreshToken || req.body?.refreshToken || req.headers['x-refresh-token'];
     if (!refreshTokenCookie) {
       return res.status(401).json({ success: false, message: 'Refresh token missing.' });
     }
@@ -237,7 +239,12 @@ export const refreshToken = async (req, res) => {
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(user._id, user.role, user.schoolId);
     setAuthCookies(res, accessToken, newRefreshToken);
 
-    return res.status(200).json({ success: true, message: 'Token refreshed successfully.' });
+    return res.status(200).json({
+      success: true,
+      accessToken,
+      refreshToken: newRefreshToken,
+      message: 'Token refreshed successfully.',
+    });
   } catch (error) {
     return res.status(401).json({ success: false, message: 'Invalid or expired refresh token.' });
   }
@@ -247,10 +254,20 @@ export const refreshToken = async (req, res) => {
 // @route   POST /api/auth/logout
 export const logout = async (req, res) => {
   const isProduction = process.env.NODE_ENV === 'production';
-  const domain = process.env.COOKIE_DOMAIN && process.env.COOKIE_DOMAIN !== 'localhost' ? process.env.COOKIE_DOMAIN : undefined;
+  const rawDomain = process.env.COOKIE_DOMAIN;
+  const isPublicSuffix = rawDomain && (rawDomain.includes('onrender.com') || rawDomain.includes('netlify.app') || rawDomain === 'localhost');
+  const domain = (rawDomain && !isPublicSuffix) ? rawDomain : undefined;
 
-  res.cookie('token', '', { expires: new Date(0), httpOnly: true, secure: isProduction, domain });
-  res.cookie('refreshToken', '', { expires: new Date(0), httpOnly: true, secure: isProduction, domain });
+  const cookieOptions = {
+    expires: new Date(0),
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    ...(domain && { domain }),
+  };
+
+  res.cookie('token', '', cookieOptions);
+  res.cookie('refreshToken', '', cookieOptions);
 
   return res.status(200).json({ success: true, message: 'Logged out successfully.' });
 };

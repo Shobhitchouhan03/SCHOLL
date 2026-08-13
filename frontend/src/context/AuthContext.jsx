@@ -46,10 +46,16 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       const response = await api.get('/auth/me');
       if (response.data.success) {
+        if (response.data.accessToken) {
+          localStorage.setItem('accessToken', response.data.accessToken);
+        }
         setUser(response.data.user);
         setSchool(response.data.school);
       }
     } catch (error) {
+      if (error.response?.status === 401) {
+        localStorage.removeItem('accessToken');
+      }
       setUser(null);
       setSchool(null);
     } finally {
@@ -68,6 +74,9 @@ export const AuthProvider = ({ children }) => {
       password,
     });
     if (response.data.success) {
+      if (response.data.accessToken) {
+        localStorage.setItem('accessToken', response.data.accessToken);
+      }
       setUser(response.data.user);
       setSchool(response.data.school);
     }
@@ -82,6 +91,9 @@ export const AuthProvider = ({ children }) => {
       password,
     });
     if (response.data.success) {
+      if (response.data.accessToken) {
+        localStorage.setItem('accessToken', response.data.accessToken);
+      }
       setUser(response.data.user);
       setSchool(response.data.school);
     }
@@ -94,6 +106,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Logout error', err);
     } finally {
+      localStorage.removeItem('accessToken');
       setUser(null);
       setSchool(null);
     }
