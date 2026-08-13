@@ -854,3 +854,28 @@ export const applyTeacherLeave = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to submit leave request.' });
   }
 };
+
+// @desc    Get Logged-In Teacher's Own Leave Requests
+// @route   GET /api/teacher/leaves
+// @access  Private (Teacher)
+export const getTeacherSelfLeaves = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const teacher = await resolveTeacherProfile(req);
+
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Teacher profile not found for this account.' });
+    }
+
+    const leaves = await LeaveRequest.find({ schoolId, teacherId: teacher._id }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      leaves,
+      requests: leaves,
+    });
+  } catch (error) {
+    console.error('Get teacher self leaves error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch teacher leave requests.' });
+  }
+};

@@ -43,6 +43,7 @@ try {
     'src/tests/authIntegration.test.js',
     'src/tests/classTeacherAssignment.test.js',
     'src/tests/teacherProfileAdmission.test.js',
+    'src/tests/teacherRouteContract.test.js',
   ];
 
   for (const testFile of unitTests) {

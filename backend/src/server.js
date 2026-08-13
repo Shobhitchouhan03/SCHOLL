@@ -198,4 +198,14 @@ const startServer = async () => {
   });
 };
 
-startServer();
+const isTestMode =
+  process.env.NODE_ENV === 'test' ||
+  process.env.TEST_SUITE === 'true' ||
+  process.argv.some((arg) => arg.includes('.test.js'));
+
+if (!isTestMode) {
+  startServer();
+}
+
+export { app };
+export default app;

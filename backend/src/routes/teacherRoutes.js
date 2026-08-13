@@ -13,6 +13,7 @@ import {
   manageLeaveRequest,
   getSchoolLeaveRequests,
   getTeacherSelfProfile,
+  getTeacherSelfLeaves,
   applyTeacherLeave,
 } from '../controllers/teacherController.js';
 
@@ -37,6 +38,11 @@ router.post('/principal/teachers/:id/salary', authenticate, authorizeRoles('prin
 // TEACHER PORTAL SELF ROUTES
 // ==========================================
 router.get('/teacher/me', authenticate, authorizeRoles('teacher'), getTeacherSelfProfile);
+router.get('/teacher/leaves', authenticate, authorizeRoles('teacher'), getTeacherSelfLeaves);
 router.post('/teacher/leaves', authenticate, authorizeRoles('teacher'), applyTeacherLeave);
+
+// Aliases matching frontend variations
+router.get('/teacher/leave/requests', authenticate, authorizeRoles('teacher'), getTeacherSelfLeaves);
+router.post('/teacher/leave/requests', authenticate, authorizeRoles('teacher'), applyTeacherLeave);
 
 export default router;
