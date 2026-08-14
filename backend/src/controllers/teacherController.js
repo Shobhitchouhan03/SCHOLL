@@ -827,12 +827,14 @@ export const getTeacherSelfProfile = async (req, res) => {
     const salaryHistory = await SalaryRecord.find({ schoolId, teacherId: teacher._id }).sort({ month: -1 }).limit(6);
     const leaveRequests = await LeaveRequest.find({ schoolId, teacherId: teacher._id }).sort({ createdAt: -1 }).limit(10);
 
+    const subjectAssignmentsList = Array.isArray(activeSubjectAssignments) ? activeSubjectAssignments : [];
+
     return res.status(200).json({
       success: true,
       teacher,
       primaryClassTeacherAssignment,
-      subjectAssignments: activeSubjectAssignments.length > 0 ? activeSubjectAssignments : subjectAssignments,
-      activeSubjectAssignments,
+      subjectAssignments: subjectAssignmentsList,
+      activeSubjectAssignments: subjectAssignmentsList,
       capabilities,
       teacherCapabilities: capabilities,
       assignedStudentCount,
