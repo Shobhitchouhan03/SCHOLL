@@ -40,10 +40,13 @@ const TeacherNoticesPage = () => {
       if (profRes.data.success) {
         const teacher = profRes.data.teacher;
         setTeacherProfile(teacher);
-        if (teacher?.assignedClassIds?.length > 0) {
+        const primaryClassId = teacher?.classTeacherClassId?._id || teacher?.classTeacherClassId || teacher?.assignedClassIds?.[0]?._id || teacher?.assignedClassIds?.[0];
+        const primarySectionId = teacher?.classTeacherSectionId?._id || teacher?.classTeacherSectionId || teacher?.assignedSectionIds?.[0]?._id || teacher?.assignedSectionIds?.[0];
+        if (primaryClassId) {
           setModalForm((prev) => ({
             ...prev,
-            targetClassId: teacher.assignedClassIds[0]._id || teacher.assignedClassIds[0],
+            targetClassId: primaryClassId,
+            targetSectionId: primarySectionId || '',
           }));
         }
       }
@@ -96,7 +99,18 @@ const TeacherNoticesPage = () => {
     }
   };
 
-  const assignedClasses = teacherProfile?.assignedClassIds || [];
+  const assignedClasses = [];
+  if (teacherProfile?.classTeacherClassId) {
+    assignedClasses.push(teacherProfile.classTeacherClassId);
+  }
+  if (Array.isArray(teacherProfile?.assignedClassIds)) {
+    teacherProfile.assignedClassIds.forEach((cls) => {
+      const clsId = cls._id || cls;
+      if (!assignedClasses.some((c) => (c._id || c) === clsId)) {
+        assignedClasses.push(cls);
+      }
+    });
+  }
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">

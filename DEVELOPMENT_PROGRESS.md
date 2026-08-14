@@ -4,21 +4,23 @@
 > PRODUCTION DEPLOYMENT DEFERRED UNTIL FINAL TEACHER REBUILD STEP.
 
 ## Last Completed Patch
-STEP T2 — Final Staff Role Architecture + Principal Access Cleanup (Local Verification Completed).
+STEP T3 — Class Teacher Complete Workspace & Security Locks (Local Verification Completed).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Role architecture updated with strict separation: `superAdmin` (tenant setup), `principal` (executive setup, staff creation, oversight — no direct student/parent admission), `teacher` (academic operations, class/subject assignments — Library/Transport removed), `hr` (staff operations, Library & Transport ownership), `accountant` (financial operations only), and `parent` (linked children view). Server-enforced role restrictions on `createStudent` (restricted to Class Teachers) and `createUser` (Principal creates Teacher, Accountant, HR accounts only). 100% master verification pass (16 unit test suites), clean Vite frontend build.
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Complete Class Teacher workspace: assigned class & section prominently displayed, real database counters, student directory (`/teacher/students`) with manual student admission locked to assigned class/section, parent/family creation or sibling linkage, server-enforced class lock (403 Forbidden for non-assigned class attempts), locked attendance marking (`/teacher/attendance/mark`), student leave request review (`GET/PATCH /api/teacher/student-leaves`), class announcements (`/teacher/notices`) with combined class list resolution, marks entry action (`/teacher/exams`), and subject teacher management entry (`GET/POST /api/teacher/subject-teachers`). 100% master verification pass (17 unit test suites), clean Vite frontend build.
 
 ## Completed
 - **T1: Canonical Teacher Profile & Data Repair**: Established bi-directional `User.teacherProfileId` <-> `Teacher._id` / `Teacher.userId` <-> `User._id` relationship. Centralized `resolveTeacherProfile` with safe idempotent legacy repair matching ONLY strong identifiers (`stored userId`, `employeeId`, `loginId`, `normalized email` — NEVER name alone) within `schoolId`. `GET /api/teacher/me` returns server-derived `capabilities`, `primaryClassTeacherAssignment`, `subjectAssignments`, and real database metrics.
-- **T2: Final Staff Role Architecture & Principal Cleanup**:
-  - Restricted Principal creation roles in `principalController.js` to `teacher`, `accountant`, and `hr` only (blocking direct student/parent creation by Principal).
-  - Server-enforced `createStudent` restriction in `studentController.js` locking student admission exclusively to Class Teachers (`role: 'teacher'`).
-  - Removed Library & Transport from Teacher sidebar (`Sidebar.jsx`) and restricted backend routes.
-  - Granted HR/Common Staff (`role: 'hr'`) ownership of Library and Transport modules (`libraryRoutes.js`, `transportRoutes.js`, `Sidebar.jsx`).
-  - Updated Accountant UI/routes to financial operations only.
-  - Updated `AddStudentPage.jsx` with 403 Forbidden banner for non-class staff attempting direct student admission.
-  - Created `stepT2RoleArchitecture.test.js` regression suite. Passed `npm run verify` 100%.
+- **T2: Final Staff Role Architecture & Principal Cleanup**: Restricted Principal creation roles in `principalController.js` to `teacher`, `accountant`, and `hr` only (blocking direct student/parent creation by Principal). Server-enforced `createStudent` restriction in `studentController.js` locking student admission exclusively to Class Teachers. Removed Library & Transport from Teacher sidebar (`Sidebar.jsx`). Granted HR (`role: 'hr'`) ownership of Library and Transport modules.
+- **T3: Class Teacher Complete Workspace**:
+  - Class Teacher Dashboard displaying real DB stats and primary assigned Class & Section banner.
+  - Manual Student Admission in `AddStudentPage.jsx` with read-only locked class & section and Parent/Sibling account linkage.
+  - Server-enforced Class Lock in `studentController.js`, `attendanceController.js`, and `teacherController.js` returning `403 Forbidden` for non-assigned class/section mutations.
+  - Student Leave Management endpoints (`GET /api/teacher/student-leaves`, `PATCH /api/teacher/student-leaves/:leaveId`) for Class Teachers.
+  - Class Announcements fix in `TeacherNoticesPage.jsx` combining `classTeacherClassId` and `assignedClassIds`.
+  - Marks Entry action button in `TeacherExamsPage.jsx`.
+  - Subject Teacher management endpoints (`GET /api/teacher/subject-teachers`, `POST /api/teacher/subject-teachers`).
+  - Created `stepT3ClassTeacherWorkspace.test.js` regression suite. Passed `npm run verify` 100%.
 
 ## Partial
 - None.

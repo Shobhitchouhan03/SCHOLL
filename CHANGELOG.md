@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.20.0] - 2026-08-14
+
+### Added & Refined
+- **TEACHER REBUILD STEP T3 — Class Teacher Complete Workspace**:
+  - Enhanced Teacher Dashboard with primary assigned Class & Section banner and real database metrics.
+  - Manual Student Admission (`/teacher/students/new`) locks Class and Section fields to read-only for Class Teachers.
+  - Implemented Parent/Family account creation & sibling linkage during student admission with credentials display.
+  - Enforced server-side Class Lock across student creation (`studentController.js`), attendance (`attendanceController.js`), student leave review, and announcements (`communicationController.js`), returning `403 Forbidden` for non-assigned class attempts.
+  - Added Student Leave Management endpoints for Class Teachers (`GET /api/teacher/student-leaves`, `PATCH /api/teacher/student-leaves/:leaveId`).
+  - Fixed Class Announcements class dropdown resolution in `TeacherNoticesPage.jsx` by combining `classTeacherClassId` and `assignedClassIds`.
+  - Added `+ Add / Manage Marks` action button to `TeacherExamsPage.jsx`.
+  - Added Subject Teacher assignment endpoints for Class Teachers (`GET/POST /api/teacher/subject-teachers`).
+  - Created `backend/src/tests/stepT3ClassTeacherWorkspace.test.js` regression suite.
+  - *(Note: Production deployment deferred until final Teacher Rebuild step)*.
+
 ## [3.19.0] - 2026-08-14
 
 ### Added & Refined

@@ -1,5 +1,8 @@
 import { User } from '../models/User.js';
 import { Teacher } from '../models/Teacher.js';
+import { Student } from '../models/Student.js';
+import { StudentLeave } from '../models/StudentLeave.js';
+import { Subject } from '../models/Subject.js';
 import { SalaryRecord } from '../models/SalaryRecord.js';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { AuditLog } from '../models/AuditLog.js';
@@ -893,5 +896,196 @@ export const getTeacherSelfLeaves = async (req, res) => {
   } catch (error) {
     console.error('Get teacher self leaves error:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch teacher leave requests.' });
+  }
+};
+
+// @desc    Get Student Leave Requests for Class Teacher's assigned class & section
+// @route   GET /api/teacher/student-leaves
+// @access  Private (Class Teacher)
+export const getClassTeacherStudentLeaves = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const teacher = await resolveTeacherProfile(req);
+
+    if (!teacher || (!teacher.isClassTeacher && !teacher.classTeacherClassId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only Class Teachers can access student leave requests.',
+      });
+    }
+
+    const classId = teacher.classTeacherClassId._id || teacher.classTeacherClassId;
+    const sectionId = teacher.classTeacherSectionId?._id || teacher.classTeacherSectionId;
+
+    const studentQuery = { schoolId, currentClassId: classId };
+    if (sectionId) studentQuery.currentSectionId = sectionId;
+
+    const students = await Student.find(studentQuery).select('_id');
+    const studentIds = students.map((s) => s._id);
+
+    const leaves = await StudentLeave.find({ schoolId, studentId: { $in: studentIds } })
+      .populate({
+        path: 'studentId',
+        select: 'fullName admissionNumber rollNumber currentClassId currentSectionId',
+        populate: [
+          { path: 'currentClassId', select: 'name' },
+          { path: 'currentSectionId', select: 'name' },
+        ],
+      })
+      .populate('parentAccountId', 'primaryGuardian')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({ success: true, leaves, requests: leaves });
+  } catch (error) {
+    console.error('Get class teacher student leaves error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch student leave requests.' });
+  }
+};
+
+// @desc    Approve / Reject Student Leave Request by Class Teacher
+// @route   PATCH /api/teacher/student-leaves/:leaveId
+// @access  Private (Class Teacher)
+export const manageStudentLeaveByClassTeacher = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const { leaveId } = req.params;
+    const { status, reviewRemark } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status must be approved or rejected.' });
+    }
+
+    const teacher = await resolveTeacherProfile(req);
+    if (!teacher || (!teacher.isClassTeacher && !teacher.classTeacherClassId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only Class Teachers can approve or reject student leave requests.',
+      });
+    }
+
+    const leave = await StudentLeave.findOne({ _id: leaveId, schoolId }).populate('studentId');
+    if (!leave) {
+      return res.status(404).json({ success: false, message: 'Student leave request not found.' });
+    }
+
+    const classId = teacher.classTeacherClassId._id || teacher.classTeacherClassId;
+    const sectionId = teacher.classTeacherSectionId?._id || teacher.classTeacherSectionId;
+
+    const studentClassId = leave.studentId?.currentClassId;
+    const studentSectionId = leave.studentId?.currentSectionId;
+
+    if (
+      String(studentClassId) !== String(classId) ||
+      (sectionId && String(studentSectionId) !== String(sectionId))
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only review student leave requests for your assigned class and section.',
+      });
+    }
+
+    leave.status = status;
+    leave.reviewRemark = (reviewRemark || '').trim();
+    leave.reviewedBy = req.user._id;
+    leave.reviewedAt = new Date();
+    await leave.save();
+
+    return res.status(200).json({ success: true, message: `Student leave request ${status}.`, leave });
+  } catch (error) {
+    console.error('Manage student leave by class teacher error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update student leave request.' });
+  }
+};
+
+// @desc    Get Subject Teachers assigned to Class Teacher's Class
+// @route   GET /api/teacher/subject-teachers
+// @access  Private (Class Teacher)
+export const getClassSubjectTeachers = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const teacher = await resolveTeacherProfile(req);
+
+    if (!teacher || (!teacher.isClassTeacher && !teacher.classTeacherClassId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only Class Teachers can manage class subject teachers.',
+      });
+    }
+
+    const classId = teacher.classTeacherClassId._id || teacher.classTeacherClassId;
+
+    const subjectTeachers = await Teacher.find({
+      schoolId,
+      assignedClassIds: classId,
+    })
+      .select('name employeeId email department designation assignedSubjectIds')
+      .populate('assignedSubjectIds', 'name code subjectType');
+
+    const availableTeachers = await Teacher.find({ schoolId, isActive: true })
+      .select('_id name employeeId designation department')
+      .sort({ name: 1 });
+
+    const availableSubjects = await Subject.find({ schoolId, classId }).select('_id name code subjectType');
+
+    return res.status(200).json({
+      success: true,
+      subjectTeachers,
+      availableTeachers,
+      availableSubjects,
+    });
+  } catch (error) {
+    console.error('Get class subject teachers error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch subject teachers.' });
+  }
+};
+
+// @desc    Assign Subject Teacher to Class Teacher's Class
+// @route   POST /api/teacher/subject-teachers
+// @access  Private (Class Teacher)
+export const assignSubjectTeacherToClass = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const { teacherId, subjectId } = req.body;
+
+    if (!teacherId || !subjectId) {
+      return res.status(400).json({ success: false, message: 'Teacher ID and Subject ID are required.' });
+    }
+
+    const classTeacher = await resolveTeacherProfile(req);
+    if (!classTeacher || (!classTeacher.isClassTeacher && !classTeacher.classTeacherClassId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only Class Teachers can assign subject teachers.',
+      });
+    }
+
+    const classId = classTeacher.classTeacherClassId._id || classTeacher.classTeacherClassId;
+    const sectionId = classTeacher.classTeacherSectionId?._id || classTeacher.classTeacherSectionId;
+
+    const targetTeacher = await Teacher.findOne({ _id: teacherId, schoolId });
+    if (!targetTeacher) {
+      return res.status(404).json({ success: false, message: 'Selected teacher account not found.' });
+    }
+
+    if (!targetTeacher.assignedClassIds.some((c) => String(c) === String(classId))) {
+      targetTeacher.assignedClassIds.push(classId);
+    }
+    if (sectionId && !targetTeacher.assignedSectionIds.some((s) => String(s) === String(sectionId))) {
+      targetTeacher.assignedSectionIds.push(sectionId);
+    }
+    if (!targetTeacher.assignedSubjectIds.some((sub) => String(sub) === String(subjectId))) {
+      targetTeacher.assignedSubjectIds.push(subjectId);
+    }
+
+    await targetTeacher.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Subject teacher ${targetTeacher.name} assigned successfully to class.`,
+      teacher: targetTeacher,
+    });
+  } catch (error) {
+    console.error('Assign subject teacher error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to assign subject teacher.' });
   }
 };
