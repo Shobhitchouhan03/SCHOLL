@@ -2,6 +2,8 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 import { School } from '../models/School.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { Student } from '../models/Student.js';
+import { ParentProfile } from '../models/ParentProfile.js';
 
 // Helper to generate access & refresh tokens
 const generateTokens = (userId, role, schoolId = null) => {
@@ -53,7 +55,7 @@ export const superAdminLogin = async (req, res) => {
     }
 
     const normalizedLoginId = rawIdentifier.toUpperCase();
-    const normalizedPhone = rawIdentifier.replace(/[\s\-\(\)]/g, '');
+    const normalizedPhone = rawIdentifier.replace(/[\s\-\(\)\+]/g, '');
     const escapedRaw = rawIdentifier.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 
     const user = await User.findOne({
@@ -121,7 +123,7 @@ export const superAdminLogin = async (req, res) => {
   }
 };
 
-// @desc    School User Login (Principal, Teacher, Parent)
+// @desc    School User Login (Principal, Teacher, Parent, Accountant, HR)
 // @route   POST /api/auth/school/login
 export const schoolUserLogin = async (req, res) => {
   try {
@@ -133,7 +135,16 @@ export const schoolUserLogin = async (req, res) => {
     }
 
     const formattedSchoolCode = schoolCode.toUpperCase().trim();
-    const school = await School.findOne({ schoolCode: formattedSchoolCode });
+    const escapedCode = formattedSchoolCode.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+    const school = await School.findOne({
+      $or: [
+        { schoolCode: formattedSchoolCode },
+        { code: formattedSchoolCode },
+        { schoolCode: new RegExp(`^${escapedCode}$`, 'i') },
+        { code: new RegExp(`^${escapedCode}$`, 'i') },
+      ],
+    });
 
     if (!school) {
       return res.status(404).json({ success: false, message: 'School not found with the provided code.' });
@@ -144,18 +155,46 @@ export const schoolUserLogin = async (req, res) => {
     }
 
     const normalizedLoginId = rawIdentifier.toUpperCase();
-    const normalizedPhone = rawIdentifier.replace(/[\s\-\(\)]/g, '');
+    const normalizedPhone = rawIdentifier.replace(/[\s\-\(\)\+]/g, '');
     const escapedRaw = rawIdentifier.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 
-    const user = await User.findOne({
+    let user = await User.findOne({
       schoolId: school._id,
       $or: [
         { loginId: normalizedLoginId },
-        { email: { $regex: `^${escapedRaw}$`, $options: 'i' } },
+        { loginId: new RegExp(`^${escapedRaw}$`, 'i') },
+        { email: new RegExp(`^${escapedRaw}$`, 'i') },
         { phone: normalizedPhone },
         { phone: rawIdentifier },
+        { phone: { $regex: escapedRaw, $options: 'i' } },
       ],
     }).select('+password');
+
+    // Fallback: If identifier matches a Student's admissionNumber in this school, find the linked Parent User!
+    if (!user) {
+      const studentDoc = await Student.findOne({
+        schoolId: school._id,
+        $or: [
+          { admissionNumber: normalizedLoginId },
+          { admissionNumber: new RegExp(`^${escapedRaw}$`, 'i') },
+          { permanentStudentId: normalizedLoginId },
+        ],
+      });
+
+      if (studentDoc && studentDoc.parentAccountId) {
+        const parentProfileDoc = await ParentProfile.findOne({
+          _id: studentDoc.parentAccountId,
+          schoolId: school._id,
+        });
+
+        if (parentProfileDoc && parentProfileDoc.userId) {
+          user = await User.findOne({
+            _id: parentProfileDoc.userId,
+            schoolId: school._id,
+          }).select('+password');
+        }
+      }
+    }
 
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials for this school.' });
@@ -189,7 +228,7 @@ export const schoolUserLogin = async (req, res) => {
       actor: user._id,
       action: 'USER_LOGIN',
       schoolId: school._id,
-      description: `User ${user.loginId} (${user.role}) logged in to school ${school.schoolCode}`,
+      description: `User ${user.loginId} (${user.role}) logged in to school ${school.schoolCode || school.code}`,
       entity: 'User',
     });
 
@@ -202,14 +241,15 @@ export const schoolUserLogin = async (req, res) => {
         loginId: user.loginId,
         role: user.role,
         email: user.email,
+        phone: user.phone,
         schoolId: user.schoolId,
         lastLogin: user.lastLogin,
       },
       school: {
         id: school._id,
         name: school.name,
-        schoolCode: school.schoolCode,
-        setupStatus: school.setupStatus || 'notStarted',
+        schoolCode: school.schoolCode || school.code || formattedSchoolCode,
+        setupStatus: school.setupStatus || 'completed',
         setupStep: school.setupStep || 1,
       },
     });
