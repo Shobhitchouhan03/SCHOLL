@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.23.0] - 2026-08-14
+
+### Added & Refined
+- **TEACHER REBUILD STEP T6 — Attendance, Results, Student Leave & Announcements Finalization**:
+  - Locked Class Teacher attendance marking in `getAttendanceSession` and `saveAttendanceSession` (`attendanceController.js`).
+  - Contextual subject marks entry guard in `saveTeacherStudentMarks` (`examController.js`) restricting marks entry strictly to assigned subject and class.
+  - Separated Student Leave recording & review for Class Teachers (`teacherController.js`) from Teacher Personal Leave.
+  - Contextual announcement creation security in `createTeacherClassAnnouncement` (`communicationController.js`).
+  - Parent portal visibility integration for published attendance, results, leave decisions, and announcements.
+  - Created `backend/src/tests/stepT6Finalization.test.js` regression suite covering all 21 test cases.
+  - *(Note: Production deployment deferred until final Teacher Rebuild step)*.
+
 ## [3.22.0] - 2026-08-14
 
 ### Added & Refined

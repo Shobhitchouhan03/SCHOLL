@@ -5,6 +5,7 @@ import { MessageLog } from '../models/MessageLog.js';
 import { Teacher } from '../models/Teacher.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { NotificationDispatcherService } from '../services/NotificationDispatcherService.js';
+import { resolveTeacherTeachingContext } from '../utils/teacherResolver.js';
 
 const getTenantSchoolId = (req) => req.tenantSchoolId || req.user?.schoolId;
 
@@ -137,19 +138,18 @@ export const createTeacherClassAnnouncement = async (req, res) => {
     }
 
     // Verify teacher assigned classes security check
-    const teacher = await Teacher.findOne({ schoolId, $or: [{ userId: req.user._id }, { _id: req.user.teacherId || req.user._id }] });
-    if (!teacher) return res.status(404).json({ success: false, message: 'Teacher profile not found.' });
+    const context = await resolveTeacherTeachingContext(req);
+    if (!context) return res.status(404).json({ success: false, message: 'Teacher profile not found.' });
 
-    const allowedClasses = [
-      ...(teacher.assignedClassIds || []).map((c) => c.toString()),
-      teacher.classTeacherClassId ? teacher.classTeacherClassId.toString() : null,
-    ].filter(Boolean);
+    const isAuthorized = targetClassIds.every((clsId) => {
+      const secId = Array.isArray(targetSectionIds) && targetSectionIds.length > 0 ? targetSectionIds[0] : null;
+      return context.canPublishSubjectAnnouncement(clsId, secId, req.body.subjectId || null);
+    });
 
-    const isAuthorized = targetClassIds.every((clsId) => allowedClasses.includes(clsId.toString()));
     if (!isAuthorized) {
       return res.status(403).json({
         success: false,
-        message: 'Security Violation: Teachers can only send announcements to their assigned classes.',
+        message: 'Security Violation: Teachers can only send announcements to their assigned classes or subjects.',
       });
     }
 

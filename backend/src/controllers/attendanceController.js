@@ -22,7 +22,7 @@ const formatStartOfDay = (dateStr) => {
 // TEACHER ATTENDANCE CONTROLLERS
 // ==========================================
 
-import { resolveTeacherProfile } from '../utils/teacherResolver.js';
+import { resolveTeacherProfile, resolveTeacherTeachingContext } from '../utils/teacherResolver.js';
 
 // @desc    Get Teacher's Assigned Classes, Sections, and Current Session
 // @route   GET /api/teacher/attendance/options
@@ -71,11 +71,9 @@ export const getAttendanceSession = async (req, res) => {
 
     // Verify Teacher Assignment if caller is teacher
     if (req.user.role === 'teacher') {
-      const teacher = await resolveTeacherProfile(req);
-      const assignedSections = (teacher?.assignedSectionIds || []).map(String);
-      if (teacher?.isClassTeacher) assignedSections.push(String(teacher.classTeacherSectionId));
-      if (!assignedSections.includes(String(sectionId))) {
-        return res.status(403).json({ success: false, message: 'You are not assigned to mark attendance for this section.' });
+      const context = await resolveTeacherTeachingContext(req);
+      if (!context || !context.canAccessClassStudents(classId, sectionId)) {
+        return res.status(403).json({ success: false, message: 'You are not assigned to view attendance for this section.' });
       }
     }
 
@@ -162,11 +160,9 @@ export const saveAttendanceSession = async (req, res) => {
 
     // Verify Teacher Assignment if caller is teacher
     if (req.user.role === 'teacher') {
-      const teacher = await Teacher.findOne({ userId: req.user._id, schoolId });
-      const assignedSections = (teacher?.assignedSectionIds || []).map(String);
-      if (teacher?.isClassTeacher) assignedSections.push(String(teacher.classTeacherSectionId));
-      if (!assignedSections.includes(String(sectionId))) {
-        return res.status(403).json({ success: false, message: 'You are not assigned to mark attendance for this section.' });
+      const context = await resolveTeacherTeachingContext(req);
+      if (!context || !context.canManageClassStudents(classId, sectionId)) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Only the assigned Class Teacher can mark or submit attendance for this class and section.' });
       }
     }
 
