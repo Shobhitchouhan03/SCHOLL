@@ -55,6 +55,7 @@ try {
     'src/tests/stepT10FinalQA.test.js',
     'src/tests/stepT11ProductionHotfix.test.js',
     'src/tests/stepT12DataFlowHotfix.test.js',
+    'src/tests/stepT13RoleSessionHotfix.test.js',
   ];
 
   for (const testFile of unitTests) {

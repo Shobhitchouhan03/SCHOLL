@@ -39,7 +39,7 @@ const HROverviewPage = () => {
       setLoading(true);
       const [tRes, lRes, jRes, aRes, sRes] = await Promise.all([
         api.get('/principal/teachers').catch(() => ({ data: {} })),
-        api.get('/principal/leave').catch(() => ({ data: {} })),
+        api.get('/principal/leave/requests').catch(() => ({ data: {} })),
         api.get('/principal/jobs').catch(() => ({ data: {} })),
         api.get('/principal/inventory/assignments').catch(() => ({ data: {} })),
         api.get('/principal/transport/staff').catch(() => ({ data: {} })),
@@ -47,7 +47,7 @@ const HROverviewPage = () => {
 
       setStats({
         totalTeachers: tRes.data?.teachers?.length || 0,
-        pendingLeaves: lRes.data?.requests?.filter((r) => r.status === 'pending')?.length || 0,
+        pendingLeaves: (lRes.data?.leaves || lRes.data?.requests || []).filter((r) => r.status === 'pending')?.length || 0,
         openJobs: jRes.data?.jobs?.filter((j) => j.status === 'active')?.length || 0,
         totalAssets: aRes.data?.assignments?.length || 0,
         transportStaffCount: sRes.data?.staff?.length || 0,

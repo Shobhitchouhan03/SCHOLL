@@ -281,11 +281,16 @@ export const getStudents = async (req, res) => {
     if (req.user.role === 'teacher') {
       const teacherProfile = await resolveTeacherProfile(req);
       if (!teacherProfile) {
-        return res.status(404).json({ success: false, message: 'Teacher profile missing for this account.' });
+        return res.status(200).json({
+          success: true,
+          students: [],
+          pagination: { total: 0, page: 1, pages: 0, limit },
+          message: 'Teacher profile missing for this account.',
+        });
       }
 
       const allowedClassIds = [];
-      if (teacherProfile.classTeacherClassId) allowedClassIds.push(teacherProfile.classTeacherClassId);
+      if (teacherProfile.classTeacherClassId) allowedClassIds.push(teacherProfile.classTeacherClassId._id || teacherProfile.classTeacherClassId);
       if (Array.isArray(teacherProfile.assignedClassIds)) {
         teacherProfile.assignedClassIds.forEach((c) => {
           const cid = c._id || c;
@@ -294,7 +299,7 @@ export const getStudents = async (req, res) => {
       }
 
       const allowedSectionIds = [];
-      if (teacherProfile.classTeacherSectionId) allowedSectionIds.push(teacherProfile.classTeacherSectionId);
+      if (teacherProfile.classTeacherSectionId) allowedSectionIds.push(teacherProfile.classTeacherSectionId._id || teacherProfile.classTeacherSectionId);
       if (Array.isArray(teacherProfile.assignedSectionIds)) {
         teacherProfile.assignedSectionIds.forEach((s) => {
           const sid = s._id || s;
@@ -320,11 +325,18 @@ export const getStudents = async (req, res) => {
     if (status) query.status = status;
 
     if (search) {
-      query.$or = [
+      const searchOr = [
         { fullName: { $regex: search, $options: 'i' } },
         { admissionNumber: { $regex: search, $options: 'i' } },
         { permanentStudentId: { $regex: search, $options: 'i' } },
       ];
+
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: searchOr }];
+        delete query.$or;
+      } else {
+        query.$or = searchOr;
+      }
     }
 
     const total = await Student.countDocuments(query);

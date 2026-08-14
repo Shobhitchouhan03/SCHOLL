@@ -16,6 +16,8 @@ const router = express.Router();
 // PRINCIPAL LEAVE ROUTES
 router.post('/principal/leave/types', authenticate, authorizeRoles('principal'), createLeaveType);
 router.get('/principal/leave/types', authenticate, authorizeRoles('principal'), getLeaveTypes);
+router.get('/principal/leave', authenticate, authorizeRoles('principal'), getLeaveRequests);
+router.get('/principal/leaves', authenticate, authorizeRoles('principal'), getLeaveRequests);
 router.get('/principal/leave/requests', authenticate, authorizeRoles('principal'), getLeaveRequests);
 router.post('/principal/leave/requests/:requestId/approve', authenticate, authorizeRoles('principal'), approveLeaveRequest);
 router.post('/principal/leave/requests/:requestId/reject', authenticate, authorizeRoles('principal'), rejectLeaveRequest);

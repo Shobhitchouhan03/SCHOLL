@@ -77,6 +77,9 @@ export const AuthProvider = ({ children }) => {
       if (response.data.accessToken) {
         localStorage.setItem('accessToken', response.data.accessToken);
       }
+      if (response.data.refreshToken) {
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+      }
       setUser(response.data.user);
       setSchool(response.data.school);
     }
@@ -94,6 +97,9 @@ export const AuthProvider = ({ children }) => {
       if (response.data.accessToken) {
         localStorage.setItem('accessToken', response.data.accessToken);
       }
+      if (response.data.refreshToken) {
+        localStorage.setItem('refreshToken', response.data.refreshToken);
+      }
       setUser(response.data.user);
       setSchool(response.data.school);
     }
@@ -107,6 +113,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error', err);
     } finally {
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       setUser(null);
       setSchool(null);
     }
