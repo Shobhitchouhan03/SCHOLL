@@ -4,22 +4,23 @@
 > PRODUCTION DEPLOYMENT DEFERRED UNTIL FINAL TEACHER REBUILD STEP.
 
 ## Last Completed Patch
-STEP T4 — Subject Teacher Cross-Class Assignment & Contextual Access (Local Verification Completed).
+STEP T5 — Class Teacher Student + Parent/Family Lifecycle (Local Verification Completed).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Complete Subject Teacher cross-class architecture: single Principal-created Teacher login account supporting contextual Class Teacher and Subject Teacher assignments. Implemented `SubjectAssignment` model (`schoolId`, `teacherId`, `classId`, `sectionId`, `subjectId`, `status`) and `SubjectRemark` model (`schoolId`, `studentId`, `teacherId`, `classId`, `sectionId`, `subjectId`, `remark`). Contextual security resolver `resolveTeacherTeachingContext` in `teacherResolver.js` enforcing server-side class/subject permissions: Subject Teachers can read student roster, write marks ONLY for assigned subject (`examController.js`), write subject remarks (`subjectRemarkController.js`), and publish subject announcements (`communicationController.js`), but are blocked (`403 Forbidden`) from student admission, deletion, parent management, attendance, leave approval, and class configuration. 100% master verification pass (18 unit test suites), clean Vite frontend build.
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Complete Student & Parent lifecycle owned by Class Teacher: manual student admission with auto-derived/locked class & section, new parent family creation or sibling linkage (linking multiple children to a single parent account without duplicate logins), credential modal display (`loginId`, `rawPassword`, `familyCode`), contextual privacy enforcement (Subject Teachers restricted to minimal student data, blocking private family info), Student Leave recording & management (`POST/GET/PATCH /api/teacher/student-leaves`), and Principal UI cleanup (restricting operational student admission to Class Teachers). 100% master verification pass (19 unit test suites), clean Vite frontend build.
 
 ## Completed
-- **T1: Canonical Teacher Profile & Data Repair**: Established bi-directional `User.teacherProfileId` <-> `Teacher._id` / `Teacher.userId` <-> `User._id` relationship. Centralized `resolveTeacherProfile` with safe idempotent legacy repair matching ONLY strong identifiers (`stored userId`, `employeeId`, `loginId`, `normalized email` — NEVER name alone) within `schoolId`.
-- **T2: Final Staff Role Architecture & Principal Cleanup**: Restricted Principal creation roles to `teacher`, `accountant`, and `hr`. Server-enforced `createStudent` restriction in `studentController.js` locking student admission exclusively to Class Teachers. Removed Library & Transport from Teacher navigation.
-- **T3: Class Teacher Complete Workspace**: Class Teacher Dashboard displaying real DB stats and primary assigned Class & Section banner. Manual Student Admission in `AddStudentPage.jsx` with read-only locked class & section. Student Leave review endpoints (`GET/PATCH /api/teacher/student-leaves`). Class Announcements fix in `TeacherNoticesPage.jsx`.
-- **T4: Subject Teacher Cross-Class Access**:
-  - Implemented `SubjectAssignment` model (`backend/src/models/SubjectAssignment.js`) and `SubjectRemark` model (`backend/src/models/SubjectRemark.js`).
-  - Added `resolveTeacherTeachingContext` helper in `teacherResolver.js` for contextual permissions (`isOwnedClass`, `hasSubjectAssignment`, `canAccessClassStudents`, `canManageClassStudents`, `canEnterSubjectMarks`, `canPublishSubjectAnnouncement`).
-  - Implemented Subject Teacher management endpoints (`GET/POST/DELETE /api/teacher/subject-teachers`).
-  - Implemented Subject Academic Remarks endpoints (`GET/POST /api/teacher/students/:studentId/remarks`).
-  - Enforced server-side contextual marks security in `saveTeacherStudentMarks` (`examController.js`).
-  - Created `stepT4SubjectTeacherCrossClass.test.js` regression suite covering all 16 test cases. Passed `npm run verify` 100%.
+- **T1: Canonical Teacher Profile & Data Repair**: Bi-directional canonical `User.teacherProfileId` <-> `Teacher._id` relationship with safe idempotent legacy repair.
+- **T2: Final Staff Role Architecture & Principal Cleanup**: Restricted Principal creation roles to staff (`teacher`, `accountant`, `hr`). Enforced Class Teacher requirement for student admission.
+- **T3: Class Teacher Complete Workspace**: Class Teacher Dashboard, locked admission form, student leave approval, class announcements fix, marks entry action.
+- **T4: Subject Teacher Cross-Class Access**: Contextual permissions for Subject Teachers (`resolveTeacherTeachingContext`), subject marks security, subject remarks (`SubjectRemark`), subject announcements.
+- **T5: Class Teacher Student & Parent Lifecycle**:
+  - Implemented Class Teacher manual student admission (`POST /api/teacher/students`) with server-enforced class/section lock (`classTeacherClassId`, `classTeacherSectionId`).
+  - Integrated New Family creation and Existing Family sibling linkage with single parent account login.
+  - Implemented Tenant-isolated family search (`GET /api/teacher/families`).
+  - Enforced contextual student privacy in `getStudentById` (Subject Teachers receive minimal student identity; private parent/address details stripped/blocked with `403 Forbidden`).
+  - Mounted Class Teacher student leave recording (`POST /api/teacher/student-leaves`).
+  - Created `stepT5StudentParentLifecycle.test.js` regression suite covering all 18 test cases. Passed `npm run verify` 100%.
 
 ## Partial
 - None.

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.22.0] - 2026-08-14
+
+### Added & Refined
+- **TEACHER REBUILD STEP T5 — Class Teacher Student + Parent/Family Lifecycle**:
+  - Class Teacher manual student admission (`POST /api/teacher/students`) with server-derived and locked class/section.
+  - New Family creation and Existing Family sibling linkage with single parent account login (`linkedStudentIds`).
+  - Tenant-isolated family search for teachers (`GET /api/teacher/families`).
+  - Contextual student privacy enforcement in `getStudentById` (Subject Teachers receive minimal student identity; private family and address fields stripped with `403 Forbidden`).
+  - Class Teacher student leave recording (`POST /api/teacher/student-leaves`).
+  - Principal UI cleanup restricting routine student admission to Class Teachers.
+  - Created `backend/src/tests/stepT5StudentParentLifecycle.test.js` regression suite covering all 18 test cases.
+  - *(Note: Production deployment deferred until final Teacher Rebuild step)*.
+
 ## [3.21.0] - 2026-08-14
 
 ### Added & Refined

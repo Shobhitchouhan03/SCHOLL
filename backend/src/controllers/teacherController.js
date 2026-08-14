@@ -999,6 +999,54 @@ export const manageStudentLeaveByClassTeacher = async (req, res) => {
   }
 };
 
+// @desc    Record Student Leave by Class Teacher
+// @route   POST /api/teacher/student-leaves
+// @access  Private (Class Teacher)
+export const createStudentLeaveByClassTeacher = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const { studentId, startDate, endDate, reason } = req.body;
+
+    if (!studentId || !startDate || !endDate || !reason) {
+      return res.status(400).json({ success: false, message: 'Student ID, start date, end date, and reason are required.' });
+    }
+
+    const context = await resolveTeacherTeachingContext(req);
+    if (!context) {
+      return res.status(403).json({ success: false, message: 'Teacher profile not found.' });
+    }
+
+    const student = await Student.findOne({ _id: studentId, schoolId });
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    if (!context.canManageClassStudents(student.currentClassId, student.currentSectionId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only record leave for students in your assigned class and section.',
+      });
+    }
+
+    const leave = await StudentLeave.create({
+      schoolId,
+      studentId: student._id,
+      parentAccountId: student.parentAccountId,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      reason: reason.trim(),
+      status: 'approved',
+      reviewedBy: req.user._id,
+      reviewedAt: new Date(),
+    });
+
+    return res.status(201).json({ success: true, message: 'Student leave recorded successfully.', leave });
+  } catch (error) {
+    console.error('Create student leave error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to record student leave.' });
+  }
+};
+
 // @desc    Get Subject Teachers assigned to Class Teacher's Class
 // @route   GET /api/teacher/subject-teachers
 // @access  Private (Class Teacher)

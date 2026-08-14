@@ -16,6 +16,7 @@ import {
   getTeacherSelfLeaves,
   applyTeacherLeave,
   getClassTeacherStudentLeaves,
+  createStudentLeaveByClassTeacher,
   manageStudentLeaveByClassTeacher,
   getClassSubjectTeachers,
   assignSubjectTeacherToClass,
@@ -48,6 +49,7 @@ router.post('/teacher/leaves', authenticate, authorizeRoles('teacher'), applyTea
 
 // Student Leave Management for Class Teachers
 router.get('/teacher/student-leaves', authenticate, authorizeRoles('teacher'), getClassTeacherStudentLeaves);
+router.post('/teacher/student-leaves', authenticate, authorizeRoles('teacher'), createStudentLeaveByClassTeacher);
 router.patch('/teacher/student-leaves/:leaveId', authenticate, authorizeRoles('teacher'), manageStudentLeaveByClassTeacher);
 
 // Subject Teacher Management for Class Teachers
