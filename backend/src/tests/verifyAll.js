@@ -47,6 +47,7 @@ try {
     'src/tests/teacherProfileCanonical.test.js',
     'src/tests/stepT2RoleArchitecture.test.js',
     'src/tests/stepT3ClassTeacherWorkspace.test.js',
+    'src/tests/stepT4SubjectTeacherCrossClass.test.js',
   ];
 
   for (const testFile of unitTests) {

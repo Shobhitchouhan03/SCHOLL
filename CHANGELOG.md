@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.21.0] - 2026-08-14
+
+### Added & Refined
+- **TEACHER REBUILD STEP T4 — Subject Teacher Cross-Class Assignment & Contextual Access**:
+  - Implemented `SubjectAssignment` model (`backend/src/models/SubjectAssignment.js`) with compound index `{ schoolId: 1, teacherId: 1, classId: 1, sectionId: 1, subjectId: 1 }`.
+  - Implemented `SubjectRemark` model (`backend/src/models/SubjectRemark.js`) for subject-specific academic remarks.
+  - Added `resolveTeacherTeachingContext` in `teacherResolver.js` providing contextual permission helpers (`isOwnedClass`, `hasSubjectAssignment`, `canAccessClassStudents`, `canManageClassStudents`, `canEnterSubjectMarks`, `canPublishSubjectAnnouncement`).
+  - Implemented Subject Teacher management endpoints for Class Teachers (`GET/POST/DELETE /api/teacher/subject-teachers`).
+  - Implemented Subject Academic Remarks endpoints for Teachers (`GET/POST /api/teacher/students/:studentId/remarks`).
+  - Enforced server-side contextual marks security in `saveTeacherStudentMarks` (`examController.js`) blocking unauthorized subject mark entries with `403 Forbidden`.
+  - Created `backend/src/tests/stepT4SubjectTeacherCrossClass.test.js` regression suite covering all 16 security test cases.
+  - *(Note: Production deployment deferred until final Teacher Rebuild step)*.
+
 ## [3.20.0] - 2026-08-14
 
 ### Added & Refined

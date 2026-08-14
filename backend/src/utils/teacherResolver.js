@@ -98,3 +98,88 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
 
   return teacher;
 };
+
+import { SubjectAssignment } from '../models/SubjectAssignment.js';
+
+/**
+ * Resolves the complete contextual teaching profile & permission helpers for the logged-in teacher.
+ * Differentiates OWNED Class Teacher assignments from EXTERNAL Subject Teacher assignments.
+ *
+ * @param {Object} req - Express request object
+ * @returns {Promise<Object|null>} Teaching context object containing teacher, ownedClass, subjectAssignments, and permission helpers.
+ */
+export const resolveTeacherTeachingContext = async (req) => {
+  const schoolId = getTenantSchoolId(req);
+  const teacher = await resolveTeacherProfile(req, [
+    { path: 'classTeacherClassId', select: 'name displayName' },
+    { path: 'classTeacherSectionId', select: 'name' },
+  ]);
+
+  if (!schoolId || !teacher) {
+    return null;
+  }
+
+  const ownedClassId = teacher.classTeacherClassId?._id || teacher.classTeacherClassId || null;
+  const ownedSectionId = teacher.classTeacherSectionId?._id || teacher.classTeacherSectionId || null;
+
+  // Fetch all active Subject Assignments for this teacher
+  const rawSubjectAssignments = await SubjectAssignment.find({
+    schoolId,
+    teacherId: teacher._id,
+    status: 'active',
+  })
+    .populate('classId', 'name displayName')
+    .populate('sectionId', 'name')
+    .populate('subjectId', 'name code subjectType');
+
+  const isOwnedClass = (classId, sectionId) => {
+    if (!ownedClassId || !classId) return false;
+    const classMatch = String(ownedClassId) === String(classId);
+    const sectionMatch = !ownedSectionId || !sectionId || String(ownedSectionId) === String(sectionId);
+    return classMatch && sectionMatch;
+  };
+
+  const hasSubjectAssignment = (classId, sectionId, subjectId) => {
+    return rawSubjectAssignments.some((sa) => {
+      const cId = sa.classId?._id || sa.classId;
+      const sId = sa.sectionId?._id || sa.sectionId;
+      const subId = sa.subjectId?._id || sa.subjectId;
+
+      const classMatch = String(cId) === String(classId);
+      const sectionMatch = !sId || !sectionId || String(sId) === String(sectionId);
+      const subjectMatch = !subId || !subjectId || String(subId) === String(subjectId);
+      return classMatch && sectionMatch && subjectMatch;
+    });
+  };
+
+  const canAccessClassStudents = (classId, sectionId) => {
+    return isOwnedClass(classId, sectionId) || hasSubjectAssignment(classId, sectionId);
+  };
+
+  const canManageClassStudents = (classId, sectionId) => {
+    return isOwnedClass(classId, sectionId);
+  };
+
+  const canEnterSubjectMarks = (classId, sectionId, subjectId) => {
+    if (isOwnedClass(classId, sectionId)) return true;
+    return hasSubjectAssignment(classId, sectionId, subjectId);
+  };
+
+  const canPublishSubjectAnnouncement = (classId, sectionId, subjectId) => {
+    if (isOwnedClass(classId, sectionId)) return true;
+    return hasSubjectAssignment(classId, sectionId, subjectId);
+  };
+
+  return {
+    teacher,
+    schoolId,
+    ownedClass: ownedClassId ? { classId: ownedClassId, sectionId: ownedSectionId, details: teacher.classTeacherClassId } : null,
+    subjectAssignments: rawSubjectAssignments,
+    isOwnedClass,
+    hasSubjectAssignment,
+    canAccessClassStudents,
+    canManageClassStudents,
+    canEnterSubjectMarks,
+    canPublishSubjectAnnouncement,
+  };
+};

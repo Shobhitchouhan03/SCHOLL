@@ -12,7 +12,7 @@ import { StudentAcademicEnrollment } from '../models/StudentAcademicEnrollment.j
 import { ParentProfile } from '../models/ParentProfile.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { ResultCalculationService } from '../services/ResultCalculationService.js';
-import { resolveTeacherProfile } from '../utils/teacherResolver.js';
+import { resolveTeacherProfile, resolveTeacherTeachingContext } from '../utils/teacherResolver.js';
 
 const getTenantSchoolId = (req) => req.tenantSchoolId || req.user?.schoolId;
 
@@ -300,6 +300,18 @@ export const saveTeacherStudentMarks = async (req, res) => {
     const schedule = await ExamSchedule.findOne({ _id: scheduleId, schoolId, examId });
     if (!schedule) {
       return res.status(404).json({ success: false, message: 'Exam schedule not found.' });
+    }
+
+    const context = await resolveTeacherTeachingContext(req);
+    if (!context) {
+      return res.status(404).json({ success: false, message: 'Teacher profile not found.' });
+    }
+
+    if (!context.canEnterSubjectMarks(schedule.classId, sectionId, schedule.subjectId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Security Violation: You can only enter marks for your assigned class or subject.',
+      });
     }
 
     for (const item of marksList) {

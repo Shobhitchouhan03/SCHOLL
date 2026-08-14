@@ -3,6 +3,8 @@ import { Teacher } from '../models/Teacher.js';
 import { Student } from '../models/Student.js';
 import { StudentLeave } from '../models/StudentLeave.js';
 import { Subject } from '../models/Subject.js';
+import { SubjectAssignment } from '../models/SubjectAssignment.js';
+import { SubjectRemark } from '../models/SubjectRemark.js';
 import { SalaryRecord } from '../models/SalaryRecord.js';
 import { LeaveRequest } from '../models/LeaveRequest.js';
 import { AuditLog } from '../models/AuditLog.js';
@@ -1014,12 +1016,13 @@ export const getClassSubjectTeachers = async (req, res) => {
 
     const classId = teacher.classTeacherClassId._id || teacher.classTeacherClassId;
 
-    const subjectTeachers = await Teacher.find({
+    const assignments = await SubjectAssignment.find({
       schoolId,
-      assignedClassIds: classId,
+      classId,
+      status: 'active',
     })
-      .select('name employeeId email department designation assignedSubjectIds')
-      .populate('assignedSubjectIds', 'name code subjectType');
+      .populate('teacherId', 'name employeeId email department designation')
+      .populate('subjectId', 'name code subjectType');
 
     const availableTeachers = await Teacher.find({ schoolId, isActive: true })
       .select('_id name employeeId designation department')
@@ -1029,7 +1032,7 @@ export const getClassSubjectTeachers = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      subjectTeachers,
+      assignments,
       availableTeachers,
       availableSubjects,
     });
@@ -1067,6 +1070,19 @@ export const assignSubjectTeacherToClass = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Selected teacher account not found.' });
     }
 
+    // Upsert SubjectAssignment document atomically with compound index protection
+    const assignment = await SubjectAssignment.findOneAndUpdate(
+      { schoolId, teacherId, classId, sectionId: sectionId || null, subjectId },
+      {
+        $set: {
+          assignedByTeacherId: req.user._id,
+          assignmentType: 'SUBJECT_TEACHER',
+          status: 'active',
+        },
+      },
+      { upsert: true, new: true }
+    );
+
     if (!targetTeacher.assignedClassIds.some((c) => String(c) === String(classId))) {
       targetTeacher.assignedClassIds.push(classId);
     }
@@ -1081,11 +1097,51 @@ export const assignSubjectTeacherToClass = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Subject teacher ${targetTeacher.name} assigned successfully to class.`,
+      message: `Subject teacher ${targetTeacher.name} assigned successfully.`,
+      assignment,
       teacher: targetTeacher,
     });
   } catch (error) {
     console.error('Assign subject teacher error:', error);
     return res.status(500).json({ success: false, message: 'Failed to assign subject teacher.' });
+  }
+};
+
+// @desc    Remove Subject Teacher Assignment from Class Teacher's Class
+// @route   DELETE /api/teacher/subject-teachers/:assignmentId
+// @access  Private (Class Teacher)
+export const removeSubjectTeacherAssignment = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const { assignmentId } = req.params;
+
+    const classTeacher = await resolveTeacherProfile(req);
+    if (!classTeacher || (!classTeacher.isClassTeacher && !classTeacher.classTeacherClassId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only Class Teachers can remove subject teacher assignments.',
+      });
+    }
+
+    const assignment = await SubjectAssignment.findOne({ _id: assignmentId, schoolId });
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Subject assignment not found.' });
+    }
+
+    const classId = classTeacher.classTeacherClassId._id || classTeacher.classTeacherClassId;
+    if (String(assignment.classId) !== String(classId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: You can only manage subject teacher assignments for your assigned class.',
+      });
+    }
+
+    assignment.status = 'inactive';
+    await assignment.save();
+
+    return res.status(200).json({ success: true, message: 'Subject teacher assignment removed successfully.' });
+  } catch (error) {
+    console.error('Remove subject teacher assignment error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to remove subject teacher assignment.' });
   }
 };

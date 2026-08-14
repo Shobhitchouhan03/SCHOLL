@@ -19,6 +19,7 @@ import {
   manageStudentLeaveByClassTeacher,
   getClassSubjectTeachers,
   assignSubjectTeacherToClass,
+  removeSubjectTeacherAssignment,
 } from '../controllers/teacherController.js';
 
 const router = express.Router();
@@ -52,9 +53,19 @@ router.patch('/teacher/student-leaves/:leaveId', authenticate, authorizeRoles('t
 // Subject Teacher Management for Class Teachers
 router.get('/teacher/subject-teachers', authenticate, authorizeRoles('teacher'), getClassSubjectTeachers);
 router.post('/teacher/subject-teachers', authenticate, authorizeRoles('teacher'), assignSubjectTeacherToClass);
+router.delete('/teacher/subject-teachers/:assignmentId', authenticate, authorizeRoles('teacher'), removeSubjectTeacherAssignment);
 
 // Aliases matching frontend variations
 router.get('/teacher/leave/requests', authenticate, authorizeRoles('teacher'), getTeacherSelfLeaves);
 router.post('/teacher/leave/requests', authenticate, authorizeRoles('teacher'), applyTeacherLeave);
+
+import {
+  getStudentSubjectRemarks,
+  createOrUpdateSubjectRemark,
+} from '../controllers/subjectRemarkController.js';
+
+// Subject Academic Remarks for Teachers
+router.get('/teacher/students/:studentId/remarks', authenticate, authorizeRoles('teacher'), getStudentSubjectRemarks);
+router.post('/teacher/students/:studentId/remarks', authenticate, authorizeRoles('teacher'), createOrUpdateSubjectRemark);
 
 export default router;
