@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.24.0] - 2026-08-14
+
+### Added & Refined
+- **TEACHER REBUILD STEP T7 — Final Teacher Module QA, Role Security, UI Cleanup & Pre-Deployment Audit**:
+  - Validated multi-context scenario (Teacher A = Class Teacher 9-A & Subject Teacher 9-B English; Teacher B = Class Teacher 9-B & Subject Teacher 9-A Hindi) with zero permission leakage.
+  - Verified frontend permission hiding + server-side enforcement (`403 Forbidden`) across all endpoints.
+  - Verified direct URL security and Express router contract on real App router stack.
+  - Validated role boundaries (Principal: staff creation only; HR: Library & Transport; Accountant: financial modules).
+  - Created `backend/src/tests/stepT7PreDeploymentQA.test.js` regression suite covering all 25 test cases.
+  - Passed `npm run verify` 100% (21/21 unit & integration test suites).
+  - *(Note: Teacher architecture ready for production deployment; production deployment not yet performed)*.
+
 ## [3.23.0] - 2026-08-14
 
 ### Added & Refined

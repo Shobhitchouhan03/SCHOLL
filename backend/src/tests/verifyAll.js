@@ -50,6 +50,7 @@ try {
     'src/tests/stepT4SubjectTeacherCrossClass.test.js',
     'src/tests/stepT5StudentParentLifecycle.test.js',
     'src/tests/stepT6Finalization.test.js',
+    'src/tests/stepT7PreDeploymentQA.test.js',
   ];
 
   for (const testFile of unitTests) {

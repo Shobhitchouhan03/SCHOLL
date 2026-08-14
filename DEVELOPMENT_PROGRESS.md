@@ -1,13 +1,13 @@
 # Development Progress
 
 > [!NOTE]
-> PRODUCTION DEPLOYMENT DEFERRED UNTIL FINAL TEACHER REBUILD STEP.
+> PRODUCTION DEPLOYMENT NOT YET PERFORMED. READY FOR CONTROLLED PRODUCTION DEPLOYMENT IN FINAL STEP.
 
 ## Last Completed Patch
-STEP T6 — Attendance, Results, Student Leave & Announcements Finalization (Local Verification Completed).
+STEP T7 — Final Teacher Module QA, Role Security, UI Cleanup & Pre-Deployment Audit (Local Verification Completed).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Complete Class Teacher & Subject Teacher workspace finalization: locked attendance marking for Class Teachers (`attendanceController.js`), contextual subject marks boundary in `saveTeacherStudentMarks` (`examController.js`), Subject Academic Remarks (`SubjectRemark`), Class Teacher student leave administration vs Teacher personal leave (`teacherController.js`), contextual announcement creation for class/subject (`communicationController.js`), and Parent portal visibility integration. 100% master verification pass (20 unit test suites), clean Vite frontend build.
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Complete pre-deployment QA audit verified across all modules: canonical Teacher profile resolution (`GET /api/teacher/me`), multi-context permission evaluation (Class Teacher vs Subject Teacher), locked Class Teacher attendance marking, contextual subject marks boundary in `saveTeacherStudentMarks`, Student Leave vs Teacher Personal Leave, Class vs Subject announcements, Parent portal visibility, and role boundaries (Principal: staff creation only; HR: Library & Transport; Accountant: financial modules). 100% master verification pass (21 unit test suites), clean Vite frontend build.
 
 ## Completed
 - **T1: Canonical Teacher Profile & Data Repair**: Bi-directional canonical `User.teacherProfileId` <-> `Teacher._id` relationship with safe idempotent legacy repair.
@@ -15,18 +15,18 @@ Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose 
 - **T3: Class Teacher Complete Workspace**: Class Teacher Dashboard, locked admission form, student leave approval, class announcements fix, marks entry action.
 - **T4: Subject Teacher Cross-Class Access**: Contextual permissions for Subject Teachers (`resolveTeacherTeachingContext`), subject marks security, subject remarks (`SubjectRemark`), subject announcements.
 - **T5: Class Teacher Student & Parent Lifecycle**: Manual student admission with locked class/section, new family creation & sibling linkage, contextual student privacy.
-- **T6: Attendance, Results, Leave & Announcements Finalization**:
-  - Locked Class Teacher attendance marking in `getAttendanceSession` and `saveAttendanceSession` (`attendanceController.js`).
-  - Contextual subject marks entry guard in `saveTeacherStudentMarks` (`examController.js`).
-  - Class Teacher Student Leave recording & review vs Teacher Personal Leave (`teacherController.js`).
-  - Contextual announcements security in `createTeacherClassAnnouncement` (`communicationController.js`).
-  - Created `stepT6Finalization.test.js` regression suite covering all 21 test cases. Passed `npm run verify` 100%.
+- **T6: Attendance, Results, Leave & Announcements Finalization**: Attendance lock, contextual subject marks, Student Leave vs Teacher Personal Leave, contextual announcements, Parent portal integration.
+- **T7: Final Teacher Module QA & Pre-Deployment Audit**:
+  - Validated multi-context scenario (Teacher A = Class Teacher 9-A & Subject Teacher 9-B English; Teacher B = Class Teacher 9-B & Subject Teacher 9-A Hindi) with zero permission leakage.
+  - Verified frontend hiding + server-side enforcement (`403 Forbidden`) across all endpoints.
+  - Verified direct URL security and Express router contract on real App router stack.
+  - Created `stepT7PreDeploymentQA.test.js` regression suite covering all 25 test cases. Passed `npm run verify` 100% (21/21 test suites).
 
 ## Partial
 - None.
 
 ## Pending
-- Final Teacher Rebuild Step: Production deployment & live Netlify + Render sync.
+- Final Teacher Rebuild Step: Controlled production deployment & live Netlify + Render sync.
 
 ## Known Bugs
 - None (0 runtime errors, 0 build warnings).
