@@ -26,24 +26,19 @@ const TeacherSubjectTeachersPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [contextRes, asgRes, tchRes, subRes] = await Promise.allSettled([
+      const [contextRes, asgRes] = await Promise.allSettled([
         api.get('/teacher/me'),
         api.get('/teacher/subject-teachers'),
-        api.get('/teacher/school-teachers'),
-        api.get('/principal/subjects'),
       ]);
 
       if (contextRes.status === 'fulfilled' && contextRes.value.data?.success) {
         setTeacherContext(contextRes.value.data);
       }
       if (asgRes.status === 'fulfilled' && asgRes.value.data?.success) {
-        setAssignments(asgRes.value.data.subjectAssignments || []);
-      }
-      if (tchRes.status === 'fulfilled' && tchRes.value.data?.success) {
-        setSchoolTeachers(tchRes.value.data.teachers || []);
-      }
-      if (subRes.status === 'fulfilled' && subRes.value.data?.success) {
-        setSubjects(subRes.value.data.subjects || []);
+        const data = asgRes.value.data;
+        setAssignments(data.assignments || data.subjectAssignments || []);
+        setSchoolTeachers(data.availableTeachers || []);
+        setSubjects(data.availableSubjects || []);
       }
     } catch (err) {
       console.error('Fetch subject teachers data error:', err);
@@ -225,12 +220,21 @@ const TeacherSubjectTeachersPage = () => {
                       className="w-full px-3 py-2 bg-surface border border-almond/60 rounded-xl font-medium focus:outline-none focus:border-chestnut"
                     >
                       <option value="">-- Choose Subject --</option>
-                      {subjects.map((sub) => (
-                        <option key={sub._id} value={sub._id}>
-                          {sub.name} ({sub.code})
-                        </option>
-                      ))}
+                      {subjects.length === 0 ? (
+                        <option value="" disabled>No subjects configured for this class</option>
+                      ) : (
+                        subjects.map((sub) => (
+                          <option key={sub._id} value={sub._id}>
+                            {sub.name} ({sub.code})
+                          </option>
+                        ))
+                      )}
                     </select>
+                    {subjects.length === 0 && (
+                      <p className="text-[11px] text-warning font-semibold mt-1">
+                        No subjects configured for this class. Ask Principal to configure subjects in Academic Setup.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -241,12 +245,21 @@ const TeacherSubjectTeachersPage = () => {
                       className="w-full px-3 py-2 bg-surface border border-almond/60 rounded-xl font-medium focus:outline-none focus:border-chestnut"
                     >
                       <option value="">-- Choose Active Teacher --</option>
-                      {schoolTeachers.map((tch) => (
-                        <option key={tch._id} value={tch._id}>
-                          {tch.name} ({tch.employeeId})
-                        </option>
-                      ))}
+                      {schoolTeachers.length === 0 ? (
+                        <option value="" disabled>No active Subject Teachers available</option>
+                      ) : (
+                        schoolTeachers.map((tch) => (
+                          <option key={tch._id} value={tch._id}>
+                            {tch.name} ({tch.employeeId || 'EMP'}) — {tch.teacherType || 'Teacher'}
+                          </option>
+                        ))
+                      )}
                     </select>
+                    {schoolTeachers.length === 0 && (
+                      <p className="text-[11px] text-warning font-semibold mt-1">
+                        No active Subject Teachers are available in the school.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-end gap-3 pt-2">

@@ -169,6 +169,20 @@ const TeacherAddStudentPage = () => {
                 Return to My Students
               </button>
             </div>
+          ) : !teacherProfile?.classTeacherClassId ? (
+            <div className="bg-warning/10 border border-warning/30 p-8 rounded-3xl text-center space-y-3">
+              <AlertCircle className="w-10 h-10 text-warning mx-auto" />
+              <h3 className="text-base font-bold text-darkBrown">No Class or Section Assigned</h3>
+              <p className="text-xs text-textMuted max-w-md mx-auto">
+                No class/section is assigned to your account yet. Ask the Principal to assign your class in Academic Setup before adding students.
+              </p>
+              <button
+                onClick={() => navigate('/teacher/students')}
+                className="px-4 py-2 bg-chestnut hover:bg-darkBrown text-white font-bold text-xs rounded-xl"
+              >
+                Return to My Students
+              </button>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {message.text && (

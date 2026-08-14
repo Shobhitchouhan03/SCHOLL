@@ -4,6 +4,7 @@ import api from '../../services/api';
 import Header from '../../components/common/Header';
 import Sidebar from '../../components/common/Sidebar';
 import StatCard from '../../components/common/StatCard';
+import { useAuth } from '../../context/AuthContext';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import {
   GraduationCap,
@@ -16,6 +17,7 @@ import {
 
 const TeacherStudentDirectoryPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -55,7 +57,10 @@ const TeacherStudentDirectoryPage = () => {
     teacherProfile?.isClassTeacher ||
     teacherProfile?.teacherType === 'Class Teacher' ||
     teacherProfile?.teacherType === 'Class & Subject Teacher' ||
-    Boolean(teacherProfile?.classTeacherClassId)
+    Boolean(teacherProfile?.classTeacherClassId) ||
+    user?.teacherType === 'Class Teacher' ||
+    user?.teacherType === 'Class & Subject Teacher' ||
+    user?.isClassTeacher
   );
 
   return (
