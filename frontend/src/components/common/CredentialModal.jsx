@@ -98,16 +98,30 @@ const CredentialModal = ({ isOpen, credentials, onClose }) => {
             </div>
           )}
 
+          {credentials?.studentName && (
+            <div className="flex justify-between items-center pb-2 border-b border-almond/30 font-sans">
+              <span className="text-textMuted font-medium">Student:</span>
+              <span className="font-bold text-darkBrown">{credentials.studentName} ({credentials.admissionNumber})</span>
+            </div>
+          )}
+
+          {credentials?.className && (
+            <div className="flex justify-between items-center pb-2 border-b border-almond/30 font-sans">
+              <span className="text-textMuted font-medium">Class / Section:</span>
+              <span className="font-semibold text-darkBrown">{credentials.className} - Section {credentials.sectionName}</span>
+            </div>
+          )}
+
           {fullName && (
             <div className="flex justify-between items-center pb-2 border-b border-almond/30 font-sans">
-              <span className="text-textMuted font-medium">Full Name:</span>
+              <span className="text-textMuted font-medium">Parent / Guardian:</span>
               <span className="font-semibold">{fullName}</span>
             </div>
           )}
 
           {loginId && (
             <div className="flex justify-between items-center pb-2 border-b border-almond/30 font-sans">
-              <span className="text-textMuted font-medium">Login ID:</span>
+              <span className="text-textMuted font-medium">Parent Login ID:</span>
               <span className="font-bold text-chestnut font-mono">{loginId}</span>
             </div>
           )}

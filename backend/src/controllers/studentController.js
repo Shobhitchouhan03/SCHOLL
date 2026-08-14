@@ -8,6 +8,8 @@ import { SchoolClass } from '../models/SchoolClass.js';
 import { Section } from '../models/Section.js';
 import { Teacher } from '../models/Teacher.js';
 import { AuditLog } from '../models/AuditLog.js';
+import { AcademicSession } from '../models/AcademicSession.js';
+import { School } from '../models/School.js';
 import { getTenantSchoolId, resolveTeacherProfile } from '../utils/teacherResolver.js';
 
 // ==========================================
@@ -15,20 +17,52 @@ import { getTenantSchoolId, resolveTeacherProfile } from '../utils/teacherResolv
 // ==========================================
 
 // @desc    Onboard / Admit New Student (Atomic with Family Account creation or linkage)
-// @route   POST /api/principal/students
+// @route   POST /api/principal/students & POST /api/teacher/students
 // @access  Private (Principal, Class Teacher)
 export const createStudent = async (req, res) => {
   try {
     const schoolId = getTenantSchoolId(req);
 
-    let finalAcademicSessionId = req.body.currentAcademicSessionId;
-    let finalClassId = req.body.currentClassId;
-    let finalSectionId = req.body.currentSectionId;
+    const {
+      firstName: rawFirstName,
+      middleName = '',
+      lastName: rawLastName = '',
+      fullName,
+      dateOfBirth,
+      gender = 'male',
+      bloodGroup = '',
+      photoUrl = '',
+      aadhaarNumber = '',
+      nationality = 'Indian',
+      religion = '',
+      category = 'General',
+      house = '',
+      address = {},
+      admissionNumber,
+      rollNumber,
+      admissionDate,
+      previousSchool = '',
+      medicalNotes = '',
+      emergencyContact = '',
+      primaryGuardian,
+      secondaryGuardian = {},
+      familyOption = 'new',
+      existingFamilyId,
+      parentLoginId,
+      parentPassword,
+      currentAcademicSessionId,
+      currentClassId,
+      currentSectionId,
+    } = req.body;
 
-    if (req.user.role !== 'teacher') {
+    let finalAcademicSessionId = currentAcademicSessionId;
+    let finalClassId = currentClassId;
+    let finalSectionId = currentSectionId;
+
+    if (req.user.role !== 'teacher' && req.user.role !== 'principal') {
       return res.status(403).json({
         success: false,
-        message: 'Forbidden: Only authorized Class Teachers can admit new students. Principals and staff cannot directly admit students.',
+        message: 'Forbidden: Only authorized Class Teachers and Principals can admit new students.',
       });
     }
 
@@ -83,6 +117,33 @@ export const createStudent = async (req, res) => {
       finalSectionId = assignedSectionId;
     }
 
+    // Name formatting
+    let firstName = rawFirstName;
+    let lastName = rawLastName;
+    if (!firstName && fullName) {
+      const parts = fullName.trim().split(' ');
+      firstName = parts[0];
+      lastName = parts.length > 1 ? parts.slice(1).join(' ') : 'Student';
+    }
+
+    if (!firstName) {
+      return res.status(400).json({ success: false, message: 'Student name is required.' });
+    }
+
+    if (!admissionNumber) {
+      return res.status(400).json({ success: false, message: 'Admission number is required.' });
+    }
+    const formattedAdmissionNumber = admissionNumber.toUpperCase().trim();
+
+    // Check duplicate admission number early
+    const existingStudent = await Student.findOne({ schoolId, admissionNumber: formattedAdmissionNumber });
+    if (existingStudent) {
+      return res.status(409).json({
+        success: false,
+        message: `Admission number '${formattedAdmissionNumber}' is already registered in this school.`,
+      });
+    }
+
     // Auto-resolve active academic session if missing
     if (!finalAcademicSessionId) {
       const activeSession = await AcademicSession.findOne({ schoolId, isCurrent: true });
@@ -97,7 +158,7 @@ export const createStudent = async (req, res) => {
     let parentProfileRecord = null;
     let createdCredentials = null;
 
-    // 4. Handle Family Account (New vs Link)
+    // Handle Family Account (New vs Link)
     if (familyOption === 'link') {
       if (!existingFamilyId) {
         return res.status(400).json({ success: false, message: 'Existing Family Account ID is required when linking.' });
@@ -111,11 +172,24 @@ export const createStudent = async (req, res) => {
       if (!primaryGuardian || !primaryGuardian.name || !primaryGuardian.phone) {
         return res.status(400).json({ success: false, message: 'Primary Guardian Name and Phone are required for new family account.' });
       }
-      if (!parentLoginId || !parentPassword) {
-        return res.status(400).json({ success: false, message: 'Parent Login ID and Password are required for new family account.' });
+
+      // Auto-derive loginId if not explicitly provided
+      let resolvedParentLoginId = parentLoginId;
+      if (!resolvedParentLoginId) {
+        if (primaryGuardian.email && primaryGuardian.email.trim()) {
+          resolvedParentLoginId = primaryGuardian.email.trim();
+        } else if (primaryGuardian.phone && primaryGuardian.phone.trim()) {
+          resolvedParentLoginId = primaryGuardian.phone.trim();
+        } else {
+          resolvedParentLoginId = `PARENT_${formattedAdmissionNumber}`;
+        }
       }
 
-      const formattedParentLoginId = parentLoginId.toUpperCase().trim();
+      if (!parentPassword) {
+        return res.status(400).json({ success: false, message: 'Parent Login Password is required for new family account.' });
+      }
+
+      const formattedParentLoginId = resolvedParentLoginId.toUpperCase().trim();
 
       // Check unique Login ID in User model
       const existingUser = await User.findOne({ schoolId, loginId: formattedParentLoginId });
@@ -126,14 +200,31 @@ export const createStudent = async (req, res) => {
         });
       }
 
+      // Check duplicate phone for parent users
+      if (primaryGuardian.phone) {
+        const existingPhoneUser = await User.findOne({ schoolId, phone: primaryGuardian.phone.trim(), role: 'parent' });
+        if (existingPhoneUser) {
+          return res.status(409).json({
+            success: false,
+            message: `A parent account with phone number '${primaryGuardian.phone.trim()}' already exists. Please choose 'Link to Existing Family' instead.`,
+          });
+        }
+      }
+
       const parentName = primaryGuardian.name.trim();
 
-      // Create Parent User Account
+      // Fetch School details for credentials modal
+      const schoolDoc = await School.findById(schoolId);
+      const schoolCode = schoolDoc?.code || schoolDoc?.schoolCode || '';
+      const schoolName = schoolDoc?.name || '';
+      const schoolSlug = schoolDoc?.slug || '';
+
+      // Create Parent User Account (User model pre-save hook hashes password)
       const newParentUser = await User.create({
         schoolId,
         name: parentName,
         loginId: formattedParentLoginId,
-        password: parentPassword, // Pre-save hook hashes password
+        password: parentPassword,
         role: 'parent',
         email: (primaryGuardian.email || '').toLowerCase().trim(),
         phone: primaryGuardian.phone.trim(),
@@ -167,14 +258,16 @@ export const createStudent = async (req, res) => {
         familyCode: parentProfileRecord.familyCode,
         loginId: newParentUser.loginId,
         rawPassword: parentPassword,
+        schoolCode,
+        schoolName,
+        schoolSlug,
       };
     }
 
-    // 5. Generate Permanent Student ID
     const permanentStudentId = `STU${new Date().getFullYear()}${Math.floor(10000 + Math.random() * 90000)}`;
     const constructFullName = [firstName, middleName, lastName].filter(Boolean).join(' ').trim();
 
-    // 6. Create Student
+    // Create Student
     const newStudent = await Student.create({
       schoolId,
       permanentStudentId,
@@ -184,7 +277,7 @@ export const createStudent = async (req, res) => {
       middleName: (middleName || '').trim(),
       lastName: (lastName || '').trim(),
       fullName: constructFullName,
-      dateOfBirth: new Date(dateOfBirth),
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : new Date('2015-01-01'),
       gender,
       bloodGroup: (bloodGroup || '').trim(),
       photoUrl: (photoUrl || '').trim(),
@@ -206,7 +299,7 @@ export const createStudent = async (req, res) => {
       createdBy: req.user._id,
     });
 
-    // 7. Create Student Academic Enrollment Record
+    // Create Student Academic Enrollment Record
     await StudentAcademicEnrollment.create({
       schoolId,
       studentId: newStudent._id,
@@ -218,13 +311,13 @@ export const createStudent = async (req, res) => {
       createdBy: req.user._id,
     });
 
-    // 8. Link Student to ParentProfile
+    // Link Student to ParentProfile
     if (!parentProfileRecord.linkedStudentIds.includes(newStudent._id)) {
       parentProfileRecord.linkedStudentIds.push(newStudent._id);
       await parentProfileRecord.save();
     }
 
-    // 9. Initial Status History
+    // Initial Status History
     await StudentStatusHistory.create({
       schoolId,
       studentId: newStudent._id,
@@ -242,8 +335,14 @@ export const createStudent = async (req, res) => {
       description: `Admitted student ${newStudent.fullName} (${newStudent.admissionNumber}).`,
     });
 
+    const targetClassObj = finalClassId ? await SchoolClass.findById(finalClassId) : null;
+    const targetSectionObj = finalSectionId ? await Section.findById(finalSectionId) : null;
+
     if (createdCredentials) {
-      createdCredentials.linkedStudent = newStudent.fullName;
+      createdCredentials.studentName = constructFullName;
+      createdCredentials.admissionNumber = formattedAdmissionNumber;
+      createdCredentials.className = targetClassObj?.name || '';
+      createdCredentials.sectionName = targetSectionObj?.name || '';
     }
 
     return res.status(201).json({
@@ -251,13 +350,14 @@ export const createStudent = async (req, res) => {
       message: `Student ${newStudent.fullName} admitted successfully.`,
       student: newStudent,
       credentials: createdCredentials,
+      createdCredentials,
     });
   } catch (error) {
     console.error('Create student error:', error);
     if (error.code === 11000) {
       return res.status(409).json({ success: false, message: 'Admission number or Parent login ID already exists.' });
     }
-    return res.status(500).json({ success: false, message: 'Failed to admit student.' });
+    return res.status(500).json({ success: false, message: error.message || 'Failed to admit student.' });
   }
 };
 

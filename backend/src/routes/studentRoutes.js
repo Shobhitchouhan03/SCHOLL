@@ -37,9 +37,10 @@ router.post('/principal/students/:studentId/documents', authenticate, authorizeR
 // ==========================================
 // PRINCIPAL FAMILY ACCOUNT MANAGEMENT ROUTES
 // ==========================================
-router.get('/principal/families', authenticate, authorizeRoles('principal'), getFamilies);
-router.get('/principal/families/:familyId', authenticate, authorizeRoles('principal'), getFamilyById);
-router.post('/principal/families/:familyId/link-student', authenticate, authorizeRoles('principal'), linkStudentToFamily);
+router.get('/principal/families', authenticate, authorizeRoles('principal', 'teacher'), getFamilies);
+router.get('/teacher/families', authenticate, authorizeRoles('teacher'), getFamilies);
+router.get('/principal/families/:familyId', authenticate, authorizeRoles('principal', 'teacher'), getFamilyById);
+router.post('/principal/families/:familyId/link-student', authenticate, authorizeRoles('principal', 'teacher'), linkStudentToFamily);
 router.delete('/principal/families/:familyId/unlink-student/:studentId', authenticate, authorizeRoles('principal'), unlinkStudentFromFamily);
 router.post('/principal/families/:familyId/reset-password', authenticate, authorizeRoles('principal'), resetFamilyPassword);
 router.patch('/principal/families/:familyId/status', authenticate, authorizeRoles('principal'), toggleFamilyStatus);
