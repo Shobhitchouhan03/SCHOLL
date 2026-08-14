@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.25.0] - 2026-08-14
+
+### Added & Refined
+- **TEACHER REBUILD STEP T8 — Controlled Production Deployment & Live End-to-End Verification**:
+  - Controlled production deployment of commit `2ead9b8` pushed to GitHub `main`.
+  - Render backend live deployment verified (`GET /api/health` 200 OK, 0 route contract 404s).
+  - Netlify frontend live SPA deployment verified (`https://school-saasfrontend.netlify.app` 200 OK).
+  - Verified live E2E: Class Teacher student admission & attendance locks, Subject Teacher assigned marks boundaries, Student Leave vs Teacher Personal Leave, contextual class/subject announcements, Parent portal child linkage, direct URL security, and tenant isolation.
+  - Teacher Rebuild Series T1–T8 100% completed and production verified.
+
 ## [3.24.0] - 2026-08-14
 
 ### Added & Refined
