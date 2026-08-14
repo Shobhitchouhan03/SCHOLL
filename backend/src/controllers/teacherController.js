@@ -139,6 +139,7 @@ export const createTeacher = async (req, res) => {
     const newTeacher = await Teacher.create({
       schoolId,
       userId: newUser._id,
+      loginId: formattedLoginId,
       employeeId: formattedEmployeeId,
       name: name.trim(),
       gender: gender || 'male',
@@ -776,34 +777,50 @@ export const getTeacherSelfProfile = async (req, res) => {
       section: teacher.classTeacherSectionId,
     } : null;
 
-    const subjectAssignments = Array.isArray(teacher.assignedSubjectIds) ? teacher.assignedSubjectIds : [];
+    // Fetch active Subject Assignments from SubjectAssignment collection
+    const activeSubjectAssignments = await SubjectAssignment.find({
+      schoolId,
+      teacherId: teacher._id,
+      status: 'active',
+    })
+      .populate('classId', 'name displayName category')
+      .populate('sectionId', 'name capacity roomNumber')
+      .populate('subjectId', 'name code subjectType');
 
-    // Calculate real assigned student count
-    const allowedClassIds = [];
-    if (teacher.classTeacherClassId) allowedClassIds.push(teacher.classTeacherClassId._id || teacher.classTeacherClassId);
+    const allowedClassIds = new Set();
+    const allowedSectionIds = new Set();
+
+    if (teacher.classTeacherClassId) allowedClassIds.add(String(teacher.classTeacherClassId._id || teacher.classTeacherClassId));
+    if (teacher.classTeacherSectionId) allowedSectionIds.add(String(teacher.classTeacherSectionId._id || teacher.classTeacherSectionId));
+
     if (Array.isArray(teacher.assignedClassIds)) {
-      teacher.assignedClassIds.forEach((c) => allowedClassIds.push(c._id || c));
+      teacher.assignedClassIds.forEach((c) => allowedClassIds.add(String(c._id || c)));
+    }
+    if (Array.isArray(teacher.assignedSectionIds)) {
+      teacher.assignedSectionIds.forEach((s) => allowedSectionIds.add(String(s._id || s)));
     }
 
-    const allowedSectionIds = [];
-    if (teacher.classTeacherSectionId) allowedSectionIds.push(teacher.classTeacherSectionId._id || teacher.classTeacherSectionId);
-    if (Array.isArray(teacher.assignedSectionIds)) {
-      teacher.assignedSectionIds.forEach((s) => allowedSectionIds.push(s._id || s));
-    }
+    activeSubjectAssignments.forEach((sa) => {
+      if (sa.classId) allowedClassIds.add(String(sa.classId._id || sa.classId));
+      if (sa.sectionId) allowedSectionIds.add(String(sa.sectionId._id || sa.sectionId));
+    });
+
+    const classIdArray = Array.from(allowedClassIds);
+    const sectionIdArray = Array.from(allowedSectionIds);
 
     let studentQuery = { schoolId, status: 'active' };
-    if (allowedClassIds.length > 0 && allowedSectionIds.length > 0) {
+    if (classIdArray.length > 0 && sectionIdArray.length > 0) {
       studentQuery.$or = [
-        { currentClassId: { $in: allowedClassIds } },
-        { currentSectionId: { $in: allowedSectionIds } },
+        { currentClassId: { $in: classIdArray } },
+        { currentSectionId: { $in: sectionIdArray } },
       ];
-    } else if (allowedClassIds.length > 0) {
-      studentQuery.currentClassId = { $in: allowedClassIds };
-    } else if (allowedSectionIds.length > 0) {
-      studentQuery.currentSectionId = { $in: allowedSectionIds };
+    } else if (classIdArray.length > 0) {
+      studentQuery.currentClassId = { $in: classIdArray };
+    } else if (sectionIdArray.length > 0) {
+      studentQuery.currentSectionId = { $in: sectionIdArray };
     }
 
-    const assignedStudentCount = (allowedClassIds.length > 0 || allowedSectionIds.length > 0)
+    const assignedStudentCount = (classIdArray.length > 0 || sectionIdArray.length > 0)
       ? await Student.countDocuments(studentQuery)
       : 0;
 
@@ -814,7 +831,8 @@ export const getTeacherSelfProfile = async (req, res) => {
       success: true,
       teacher,
       primaryClassTeacherAssignment,
-      subjectAssignments,
+      subjectAssignments: activeSubjectAssignments.length > 0 ? activeSubjectAssignments : subjectAssignments,
+      activeSubjectAssignments,
       capabilities,
       teacherCapabilities: capabilities,
       assignedStudentCount,

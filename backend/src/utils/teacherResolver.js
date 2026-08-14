@@ -83,6 +83,11 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
       saveTeacher = true;
     }
 
+    if (!teacher.loginId && user.loginId) {
+      teacher.loginId = user.loginId.trim().toUpperCase();
+      saveTeacher = true;
+    }
+
     if (saveUser) {
       await User.updateOne({ _id: user._id }, { $set: { teacherProfileId: teacher._id } }).catch(() => {});
     }

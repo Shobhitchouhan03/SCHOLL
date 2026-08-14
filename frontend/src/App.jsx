@@ -16,6 +16,7 @@ import AddStudentPage from './pages/principal/AddStudentPage';
 import StudentProfilePage from './pages/principal/StudentProfilePage';
 import FamilyDirectoryPage from './pages/principal/FamilyDirectoryPage';
 import TeacherStudentDirectoryPage from './pages/teacher/TeacherStudentDirectoryPage';
+import TeacherSubjectTeachersPage from './pages/teacher/TeacherSubjectTeachersPage';
 
 // Attendance & Homework Pages
 import TeacherAttendanceMarkingPage from './pages/teacher/TeacherAttendanceMarkingPage';
@@ -865,6 +866,14 @@ function App() {
             element={
               <RoleRoute allowedRoles={['teacher']}>
                 <TeacherStudentDirectoryPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/teacher/subject-teachers"
+            element={
+              <RoleRoute allowedRoles={['teacher']}>
+                <TeacherSubjectTeachersPage />
               </RoleRoute>
             }
           />

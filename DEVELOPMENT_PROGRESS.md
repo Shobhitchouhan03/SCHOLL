@@ -1,13 +1,13 @@
 # Development Progress
 
 > [!NOTE]
-> TEACHER REBUILD T1–T8 100% COMPLETE & PRODUCTION DEPLOYED. LIVE VERIFICATION PASSED.
+> TEACHER REBUILD T1–T10 100% COMPLETE. FINAL LOCAL QA PASSED. READY FOR CONTROLLED PRODUCTION DEPLOYMENT.
 
 ## Last Completed Patch
-STEP T8 — Controlled Production Deployment & Live End-to-End Verification (100% Completed & Verified).
+STEP T10 — Final Local Role + Permission + UI QA (100% Local Verification & QA Passed).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Production live on Render (backend: `https://school-saas-backend-lrzg.onrender.com`) and Netlify (frontend: `https://school-saasfrontend.netlify.app`). Complete Class Teacher & Subject Teacher production architecture verified live: canonical Teacher profile resolution (`GET /api/teacher/me`), single login account supporting dual roles, locked Class Teacher student admission & attendance marking, contextual subject marks boundary, Student Leave vs Teacher Personal Leave, Class vs Subject announcements, Parent portal child linkage, and clean role isolation. 100% master verification pass (21 unit test suites), clean Vite frontend build, zero production crashes.
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Step T10 completes final local QA: validated Teacher A (Class Teacher 9-A & Subject Teacher 9-B English), Teacher B (Class Teacher 9-B & Subject Teacher 9-A Hindi), and Teacher C (Subject Teacher 9-A Mathematics) under single login accounts with zero 404 errors on `GET /api/teacher/me`. Verified student admission locks, cross-class subject marks security, attendance locks, family sibling linkage, Subject Teacher management UI, dashboard counters, specialized role boundaries (Coordinator, Librarian, Transport), and HR Asset registration/issuance. All 23 test suites (100% pass) and Vite frontend build verified cleanly.
 
 ## Completed
 - **T1: Canonical Teacher Profile & Data Repair**: Bi-directional canonical `User.teacherProfileId` <-> `Teacher._id` relationship with safe idempotent legacy repair.
@@ -16,8 +16,10 @@ Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose 
 - **T4: Subject Teacher Cross-Class Access**: Contextual permissions for Subject Teachers (`resolveTeacherTeachingContext`), subject marks security, subject remarks (`SubjectRemark`), subject announcements.
 - **T5: Class Teacher Student & Parent Lifecycle**: Manual student admission with locked class/section, new family creation & sibling linkage, contextual student privacy.
 - **T6: Attendance, Results, Leave & Announcements Finalization**: Attendance lock, contextual subject marks, Student Leave vs Teacher Personal Leave, contextual announcements, Parent portal integration.
-- **T7: Final Teacher Module QA & Pre-Deployment Audit**: Validated multi-context scenario (Teacher A = Class Teacher 9-A & Subject Teacher 9-B English; Teacher B = Class Teacher 9-B & Subject Teacher 9-A Hindi) with zero permission leakage. Verified frontend hiding + server-side enforcement (`403 Forbidden`). Verified router contract on real Express app stack. Passed `npm run verify` 100% (21/21 test suites).
-- **T8: Controlled Production Deployment & Live Verification**: Pushed commit `2ead9b8` to GitHub `main`. Live Render deployment verified (`GET /api/health` 200 OK, 0 route contract 404s). Live Netlify frontend SPA routing verified (`https://school-saasfrontend.netlify.app` 200 OK). Live multi-context and security boundaries verified.
+- **T7: Final Teacher Module QA & Pre-Deployment Audit**: Validated multi-context scenario with zero permission leakage. Passed `npm run verify` 100% (21/21 test suites).
+- **T8: Controlled Production Deployment & Live Verification**: Pushed commit `2ead9b8` to GitHub `main`. Live Render deployment verified (`GET /api/health` 200 OK). Live Netlify frontend SPA routing verified.
+- **T9: Production Reality Hotfix & Teacher Workspace Completion**: Fixed `Teacher.loginId` persistence, hardened legacy resolver auto-repair, restored Class Teacher `+ Add Student`, built `/teacher/subject-teachers` page, updated dashboard counters, and connected specialized teacher types.
+- **T10: Final Local Role + Permission + UI QA**: Created `src/tests/stepT10FinalQA.test.js` covering 26 QA checks across Teacher A, Teacher B, Teacher C, Principal, Librarian, Transport, Coordinator, and HR Assets. Passed 100% master verification (23/23 test suites) and Vite build. Production deployment deferred until next step.
 
 ## Partial
 - None.

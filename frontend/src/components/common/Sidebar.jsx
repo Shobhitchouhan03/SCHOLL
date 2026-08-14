@@ -73,14 +73,33 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
           { label: 'School Settings', path: '/principal/settings', icon: Settings },
         ];
       case 'teacher':
-        return [
+        const teacherType = user?.teacherType || 'Class Teacher';
+        const isClassTeacher = teacherType === 'Class Teacher' || teacherType === 'Class & Subject Teacher';
+        const items = [
           { label: 'Overview', path: '/teacher/dashboard', icon: LayoutDashboard },
           { label: 'My Students', path: '/teacher/students', icon: GraduationCap },
+        ];
+
+        if (isClassTeacher) {
+          items.push({ label: 'Subject Teachers', path: '/teacher/subject-teachers', icon: Users });
+        }
+
+        if (teacherType === 'Librarian') {
+          items.push({ label: 'Library Operations', path: '/principal/library/books', icon: Library });
+        }
+
+        if (teacherType === 'Transport Staff Viewer') {
+          items.push({ label: 'Transport Operations', path: '/principal/transport/vehicles', icon: Bus });
+        }
+
+        items.push(
           { label: 'Attendance', path: '/teacher/attendance/mark', icon: ShieldCheck },
           { label: 'Marks', path: '/teacher/exams', icon: Award },
           { label: 'Leave', path: '/teacher/leave', icon: CalendarDays },
-          { label: 'Announcements', path: '/teacher/notices', icon: Bell },
-        ];
+          { label: 'Announcements', path: '/teacher/notices', icon: Bell }
+        );
+
+        return items;
       case 'hr':
         return [
           { label: 'HR Overview', path: '/principal/hr', icon: LayoutDashboard },

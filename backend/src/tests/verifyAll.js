@@ -51,6 +51,8 @@ try {
     'src/tests/stepT5StudentParentLifecycle.test.js',
     'src/tests/stepT6Finalization.test.js',
     'src/tests/stepT7PreDeploymentQA.test.js',
+    'src/tests/stepT9ProductionHotfix.test.js',
+    'src/tests/stepT10FinalQA.test.js',
   ];
 
   for (const testFile of unitTests) {

@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.27.0] - 2026-08-15
+
+### Verified & Tested (Teacher Rebuild Step T10 — Final Local Role + Permission + UI QA)
+- **Verified Teacher Profiles & 0 404s**: Validated Teacher A (9-A Class Teacher + 9-B English), Teacher B (9-B Class Teacher + 9-A Hindi), and Teacher C (Pure Subject Teacher 9-A Mathematics) under single login accounts with zero 404 errors.
+- **Verified Class Teacher Admissions & Locked Controls**: Class Teacher A locked to 9-A, Class Teacher B locked to 9-B. Payload manipulation to non-owned classes rejected with `403 Forbidden`.
+- **Verified Cross-Class Subject Marks Entry**: Teacher A enters English marks for 9-B; Teacher B enters Hindi marks for 9-A. Manipulated cross-subject entries rejected (`403 Forbidden`).
+- **Verified Pure Subject Teacher Restrictions**: Teacher C restricted from student admission (`+ Add Student` hidden and POST returned 403), attendance modification, and Subject Teacher management.
+- **Verified Role & Workspace Boundaries**: Confirmed Principal staff creation, Coordinator academic oversight, Librarian library operations, Transport Staff Viewer transport operations, and HR Asset registration/checkout flow.
+- **Master Verification Pass**: Created `src/tests/stepT10FinalQA.test.js` covering 26 QA checks. Passed 23/23 master test suites (100% pass) and Vite frontend build cleanly.
+
+## [3.26.0] - 2026-08-15
+
+### Fixed & Completed (Teacher Rebuild Step T9 — Production Reality Hotfix & Workspace Completion)
+- **Fixed Teacher Profile 404 Resolution**: Added `loginId: formattedLoginId` payload persistence on `Teacher.create` in `teacherController.js` to eliminate `HTTP 404 Teacher profile not found`.
+- **Hardened Legacy Resolver Auto-Repair**: Enhanced `resolveTeacherProfile` in `teacherResolver.js` to auto-repair `Teacher.userId`, `User.teacherProfileId`, and `Teacher.loginId` idempotently.
+- **Restored Class Teacher Add Student**: Class Teachers receive `+ Add Student` button on `/teacher/students`, locking student admission to owned class/section. Subject Teachers strictly prohibited (`403 Forbidden`).
+- **Built Missing Subject Teacher Management UI**: Created `TeacherSubjectTeachersPage.jsx` at `/teacher/subject-teachers`, allowing Class Teachers to assign and manage subject teachers.
+- **Fixed Teacher Dashboard Zero Counters**: Updated `getTeacherSelfProfile` metrics calculation to aggregate across both `Teacher` document arrays AND active `SubjectAssignment` collection documents.
+- **Connected Specialized Teacher Types**: Linked `Coordinator`, `Librarian`, and `Transport Staff Viewer` to capability-driven sidebars and workspaces.
+- **Added Integration Suite**: Created `src/tests/stepT9ProductionHotfix.test.js` covering all 10 core requirements. 100% master verification and Vite build pass.
+
 ## [3.25.0] - 2026-08-14
 
 ### Added & Refined
