@@ -44,6 +44,7 @@ try {
     'src/tests/classTeacherAssignment.test.js',
     'src/tests/teacherProfileAdmission.test.js',
     'src/tests/teacherRouteContract.test.js',
+    'src/tests/teacherProfileCanonical.test.js',
   ];
 
   for (const testFile of unitTests) {

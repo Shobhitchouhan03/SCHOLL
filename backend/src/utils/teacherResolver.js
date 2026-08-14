@@ -1,4 +1,5 @@
 import { Teacher } from '../models/Teacher.js';
+import { User } from '../models/User.js';
 
 /**
  * Derives the tenant schoolId strictly from authenticated user session or middleware
@@ -7,7 +8,9 @@ export const getTenantSchoolId = (req) => req.tenantSchoolId || req.user?.school
 
 /**
  * Shared central resolver for the authenticated Teacher profile.
- * Guarantees consistent Teacher.userId -> User._id lookup across all modules.
+ * Canonical Link: User.teacherProfileId <-> Teacher._id AND Teacher.userId <-> User._id.
+ * Safe Idempotent Legacy Repair: Matches within same school by strong identifiers (stored userId, employeeId, loginId, normalized email).
+ * NEVER matches by name alone.
  *
  * @param {Object} req - Express request object containing req.user and req.tenantSchoolId
  * @param {String|Object} populateFields - Optional Mongoose populate path(s)
@@ -21,31 +24,39 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
     return null;
   }
 
-  // 1. Primary lookup by schoolId + userId
-  let teacher = await Teacher.findOne({
-    schoolId,
-    userId: user._id,
-    isActive: true,
-  });
+  let teacher = null;
 
-  // 2. Secondary fallback lookup by schoolId + loginId / employeeId / email / name
+  // 1. Direct Canonical lookup via User.teacherProfileId
+  if (user.teacherProfileId) {
+    teacher = await Teacher.findOne({
+      _id: user.teacherProfileId,
+      schoolId,
+      isActive: true,
+    });
+  }
+
+  // 2. Direct Canonical lookup via Teacher.userId
+  if (!teacher && user._id) {
+    teacher = await Teacher.findOne({
+      schoolId,
+      userId: user._id,
+      isActive: true,
+    });
+  }
+
+  // 3. Safe Idempotent Legacy Fallback (Strictly within same school, strong identifiers ONLY)
   if (!teacher) {
     const searchConditions = [];
 
     if (user.loginId) {
-      searchConditions.push({ employeeId: user.loginId.toUpperCase() });
-      searchConditions.push({ email: user.loginId.toLowerCase() });
-      const escapedLogin = user.loginId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      searchConditions.push({ name: new RegExp(`^${escapedLogin}$`, 'i') });
+      const cleanLogin = user.loginId.trim().toUpperCase();
+      searchConditions.push({ employeeId: cleanLogin });
+      searchConditions.push({ loginId: cleanLogin });
     }
 
-    if (user.name) {
-      const escapedName = user.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      searchConditions.push({ name: new RegExp(`^${escapedName}$`, 'i') });
-    }
-
-    if (user.email) {
-      searchConditions.push({ email: user.email.toLowerCase() });
+    if (user.email && user.email.trim().length > 0) {
+      const cleanEmail = user.email.trim().toLowerCase();
+      searchConditions.push({ email: cleanEmail });
     }
 
     if (searchConditions.length > 0) {
@@ -54,27 +65,30 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
         isActive: true,
         $or: searchConditions,
       });
-
-      // Auto-repair: link userId to Teacher document if found
-      if (teacher && (!teacher.userId || String(teacher.userId) !== String(user._id))) {
-        teacher.userId = user._id;
-        await teacher.save();
-      }
     }
   }
 
-  // 3. Fallback: Single unlinked teacher profile in same school
-  if (!teacher) {
-    const unlinkedTeachers = await Teacher.find({
-      schoolId,
-      isActive: true,
-      $or: [{ userId: { $exists: false } }, { userId: null }],
-    });
+  // 4. Bi-directional Canonical Link Auto-Repair & Persistence
+  if (teacher) {
+    let saveUser = false;
+    let saveTeacher = false;
 
-    if (unlinkedTeachers.length === 1) {
-      teacher = unlinkedTeachers[0];
+    if (!user.teacherProfileId || String(user.teacherProfileId) !== String(teacher._id)) {
+      user.teacherProfileId = teacher._id;
+      saveUser = true;
+    }
+
+    if (!teacher.userId || String(teacher.userId) !== String(user._id)) {
       teacher.userId = user._id;
-      await teacher.save();
+      saveTeacher = true;
+    }
+
+    if (saveUser) {
+      await User.updateOne({ _id: user._id }, { $set: { teacherProfileId: teacher._id } }).catch(() => {});
+    }
+
+    if (saveTeacher) {
+      await teacher.save().catch(() => {});
     }
   }
 

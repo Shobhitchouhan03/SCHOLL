@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.18.0] - 2026-08-14
+
+### Added & Refined
+- **TEACHER REBUILD STEP T1 — Canonical Teacher Profile & Production Data Repair**:
+  - Established bi-directional canonical account relationship: `User.teacherProfileId` (ref `Teacher`) and `Teacher.userId` (ref `User`).
+  - Refined `resolveTeacherProfile` in `backend/src/utils/teacherResolver.js` to match legacy teacher profiles strictly by strong identifiers (`stored userId`, `employeeId`, `loginId`, `normalized email`) within the same `schoolId` — NEVER matching by name alone.
+  - Implemented automatic bi-directional link persistence on first request so legacy fallbacks are never needed again.
+  - Enhanced `createTeacher` in `teacherController.js` to persist `newUser.teacherProfileId = newTeacher._id` atomically upon teacher creation.
+  - Enhanced `GET /api/teacher/me` payload to include `primaryClassTeacherAssignment`, `subjectAssignments`, server-derived `capabilities`, and database student/salary/leave metrics.
+  - Updated `TeacherDashboard.jsx` with status-aware error banners for HTTP 401, 403, 404, 409, and 500 status codes.
+  - Created `backend/src/tests/teacherProfileCanonical.test.js` regression suite.
+
 ## [3.17.0] - 2026-08-13
 
 ### Fixed & Added

@@ -1,24 +1,24 @@
 # Development Progress
 
 ## Last Completed Patch
-PATCH FIX — Teacher Profile Resolution + Manual Student Admission by Class Teacher (Verified).
+PATCH STEP T1 — Canonical Teacher Profile & Production Data Repair (Verified).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Centralized `resolveTeacherProfile` with multi-tenant safe auto-repair linking `User.id` <-> `Teacher.userId` and legacy matchers (`loginId`, `employeeId`, `email`, `name`). Class Teacher manual student admission capability with strict server-side class/section lockdown (`classTeacherClassId` + `classTeacherSectionId`) and default Subject Teacher admission restriction. 100% master verification pass, clean production build (1667 modules), and 13 unit test suites passed.
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Bi-directional canonical relationship (`User.teacherProfileId` <-> `Teacher._id` and `Teacher.userId` <-> `User._id`). Centralized `resolveTeacherProfile` with tenant-safe idempotent legacy repair matching ONLY strong identifiers (`stored userId`, `employeeId`, `loginId`, `normalized email` — NEVER name alone) within the same `schoolId`. `GET /api/teacher/me` returns server-derived `capabilities`, `primaryClassTeacherAssignment`, `subjectAssignments`, and real database-driven assignment metrics. 100% master verification pass, clean production build (1667 modules), and 15 unit test suites passed.
 
 ## Completed
-- **1. Teacher Profile Resolution & Legacy Repair**: Enhanced `resolveTeacherProfile` in `backend/src/utils/teacherResolver.js` with multi-tenant safe fallback matching (`employeeId`, `email`, `name`, single unlinked profile) within the same `schoolId`, automatically auto-repairing legacy teacher accounts (like "CHAUHAN") on first request.
-- **2. Class Teacher Student Admission**: Implemented student admission capability for Class Teachers via `POST /api/teacher/students`. Server strictly locks `currentClassId` and `currentSectionId` to the Class Teacher's assigned class and section, rejecting attempts to admit into non-assigned classes/sections with `403 Forbidden`.
-- **3. Subject Teacher Restriction**: Restricted manual student admission for Subject Teachers by default unless designated with Class Teacher role or explicit `canAdmitStudents` permission.
-- **4. Automatic Parent Credential Generation**: Configured student admission flow to auto-generate Parent `User` and `ParentProfile` accounts with credentials returned upon admission and linked seamlessly.
-- **5. Frontend UI Integration**: Updated `TeacherStudentDirectoryPage.jsx` and `TeacherAddStudentPage.jsx` with read-only assigned class/section display, `Promise.allSettled` reference loading, and parent credential display alerts.
-- **6. Regression Test Suite**: Created `backend/src/tests/teacherProfileAdmission.test.js` validating profile resolution, tenant isolation, Class Teacher lockdown, and Subject Teacher restriction. Passed `npm run verify` 100%.
+- **1. Canonical Account Relationship**: Added `teacherProfileId` to `User` model schema (ref `Teacher`, indexed) and updated `Teacher` model schema to store `userId` (ref `User`, indexed) and `loginId`.
+- **2. Safe Idempotent Legacy Repair**: Upgraded `resolveTeacherProfile` in `backend/src/utils/teacherResolver.js` to match legacy teacher accounts strictly by strong identifiers (`userId`, `employeeId`, `loginId`, `email`) within the same `schoolId` (NEVER matching by name alone), automatically persisting bi-directional canonical links on first request.
+- **3. Onboarding Bi-directional Persistence**: Updated `createTeacher` in `teacherController.js` to persist `newUser.teacherProfileId = newTeacher._id` and `newTeacher.userId = newUser._id` atomically upon teacher creation.
+- **4. Enhanced `GET /api/teacher/me` Payload**: Enhanced `getTeacherSelfProfile` response structure to return `primaryClassTeacherAssignment`, `subjectAssignments`, server-derived `capabilities`, and real database student/salary/leave metrics.
+- **5. Status-Aware Frontend Error Handling**: Updated `TeacherDashboard.jsx` to render status-aware error banners distinguishing HTTP 401 (auth expired), 403 (forbidden), 404 (missing profile/route), 409 (conflict), and 500 (server fault), preventing generic error masking.
+- **6. Regression Test Suite**: Created `backend/src/tests/teacherProfileCanonical.test.js` validating canonical profile resolution, strong identifier legacy repair, tenant isolation, and Express route contracts. Passed `npm run verify` 100%.
 
 ## Partial
 - None.
 
 ## Pending
-- None. All patch requirements verified and ready for deployment sync.
+- None. All Step T1 requirements verified and ready for deployment sync.
 
 ## Known Bugs
 - None (0 runtime errors, 0 build warnings).

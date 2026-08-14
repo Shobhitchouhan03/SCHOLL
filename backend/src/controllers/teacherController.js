@@ -159,6 +159,10 @@ export const createTeacher = async (req, res) => {
       createdBy: req.user._id,
     });
 
+    // Bi-directional link persistence on User account
+    newUser.teacherProfileId = newTeacher._id;
+    await newUser.save();
+
     // Create initial Salary Record if monthlySalary > 0
     if (Number(salary) > 0) {
       const currentMonth = new Date().toISOString().slice(0, 7);
@@ -753,12 +757,21 @@ export const getTeacherSelfProfile = async (req, res) => {
       await teacher.save();
     }
 
-    const teacherCapabilities = {
+    const capabilities = {
       canAdmitStudents: isClassTeacherRole,
+      canManageOwnClass: isClassTeacherRole,
       canMarkAttendance: true,
       canEnterMarks: true,
       canCreateClassAnnouncement: true,
+      canAssignSubjectTeacher: false,
     };
+
+    const primaryClassTeacherAssignment = isClassTeacherRole && teacher.classTeacherClassId ? {
+      class: teacher.classTeacherClassId,
+      section: teacher.classTeacherSectionId,
+    } : null;
+
+    const subjectAssignments = Array.isArray(teacher.assignedSubjectIds) ? teacher.assignedSubjectIds : [];
 
     // Calculate real assigned student count
     const allowedClassIds = [];
@@ -795,7 +808,10 @@ export const getTeacherSelfProfile = async (req, res) => {
     return res.status(200).json({
       success: true,
       teacher,
-      teacherCapabilities,
+      primaryClassTeacherAssignment,
+      subjectAssignments,
+      capabilities,
+      teacherCapabilities: capabilities,
       assignedStudentCount,
       salaryHistory,
       leaveRequests,

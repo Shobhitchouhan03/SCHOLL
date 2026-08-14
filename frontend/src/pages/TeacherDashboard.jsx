@@ -38,15 +38,21 @@ const TeacherDashboard = () => {
   const [leaveMessage, setLeaveMessage] = useState('');
   const [leaveError, setLeaveError] = useState('');
 
+  const [errorState, setErrorState] = useState(null);
+
   const fetchSelfProfile = async () => {
     try {
       setLoading(true);
+      setErrorState(null);
       const res = await api.get('/teacher/me');
       if (res.data.success) {
         setProfileData(res.data);
       }
     } catch (err) {
       console.error('Fetch teacher self profile error:', err);
+      const status = err.response?.status || err.httpStatus || 500;
+      const message = err.customMessage || err.response?.data?.message || 'Failed to fetch teacher profile.';
+      setErrorState({ status, message });
     } finally {
       setLoading(false);
     }
@@ -94,6 +100,18 @@ const TeacherDashboard = () => {
         <Sidebar isMobileOpen={isMobileSidebarOpen} onMobileClose={() => setIsMobileSidebarOpen(false)} />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
+          {errorState && (
+            <div className="bg-danger/10 border border-danger/20 p-4 rounded-2xl flex items-center space-x-3 text-xs text-danger font-semibold">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <div>
+                <span className="font-bold uppercase tracking-wider block">
+                  HTTP {errorState.status} Error
+                </span>
+                <span>{errorState.message}</span>
+              </div>
+            </div>
+          )}
+
           {/* Welcome Banner */}
           <div className="bg-white rounded-3xl p-6 border border-almond/40 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center space-x-4">

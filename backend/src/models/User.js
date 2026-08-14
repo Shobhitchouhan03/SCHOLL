@@ -41,6 +41,12 @@ const userSchema = new mongoose.Schema(
       required: true,
       enum: ['superAdmin', 'principal', 'teacher', 'parent', 'accountant'],
     },
+    teacherProfileId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Teacher',
+      default: null,
+      index: true,
+    },
     isActive: {
       type: Boolean,
       default: true,
