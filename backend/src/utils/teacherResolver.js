@@ -31,7 +31,7 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
     teacher = await Teacher.findOne({
       _id: user.teacherProfileId,
       schoolId,
-      isActive: true,
+      isActive: { $ne: false },
     });
   }
 
@@ -40,31 +40,47 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
     teacher = await Teacher.findOne({
       schoolId,
       userId: user._id,
-      isActive: true,
+      isActive: { $ne: false },
     });
   }
 
-  // 3. Safe Idempotent Legacy Fallback (Strictly within same school, strong identifiers ONLY)
+  // 3. Safe Idempotent Legacy Fallback (Strictly within same school)
   if (!teacher) {
     const searchConditions = [];
 
-    if (user.loginId) {
-      const cleanLogin = user.loginId.trim().toUpperCase();
-      searchConditions.push({ employeeId: cleanLogin });
-      searchConditions.push({ loginId: cleanLogin });
+    if (user.loginId && user.loginId.trim().length > 0) {
+      const cleanLogin = user.loginId.trim();
+      const loginRegex = new RegExp(`^${cleanLogin.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i');
+      searchConditions.push({ employeeId: loginRegex });
+      searchConditions.push({ loginId: loginRegex });
     }
 
     if (user.email && user.email.trim().length > 0) {
-      const cleanEmail = user.email.trim().toLowerCase();
-      searchConditions.push({ email: cleanEmail });
+      const cleanEmail = user.email.trim();
+      const emailRegex = new RegExp(`^${cleanEmail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i');
+      searchConditions.push({ email: emailRegex });
     }
 
     if (searchConditions.length > 0) {
       teacher = await Teacher.findOne({
         schoolId,
-        isActive: true,
+        isActive: { $ne: false },
         $or: searchConditions,
       });
+    }
+
+    // Secondary fallback: Exact normalized Name match within SAME school if unique
+    if (!teacher && user.name && user.name.trim().length > 0) {
+      const cleanName = user.name.trim();
+      const nameRegex = new RegExp(`^${cleanName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i');
+      const candidateTeachers = await Teacher.find({
+        schoolId,
+        isActive: { $ne: false },
+        name: nameRegex,
+      });
+      if (candidateTeachers.length === 1) {
+        teacher = candidateTeachers[0];
+      }
     }
   }
 
@@ -85,6 +101,11 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
 
     if (!teacher.loginId && user.loginId) {
       teacher.loginId = user.loginId.trim().toUpperCase();
+      saveTeacher = true;
+    }
+
+    if (teacher.isActive === undefined || teacher.isActive === null) {
+      teacher.isActive = true;
       saveTeacher = true;
     }
 

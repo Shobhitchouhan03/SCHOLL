@@ -573,7 +573,7 @@ export const updateSchoolBranding = async (req, res) => {
 export const getStaffAttendance = async (req, res) => {
   try {
     const schoolId = req.tenantSchoolId;
-    const teachers = await Teacher.find({ schoolId, isActive: true }).select('name employeeId department designation role');
+    const teachers = await Teacher.find({ schoolId, isActive: { $ne: false } }).select('name employeeId department designation role');
 
     const staffAttendance = teachers.map((t) => ({
       id: t._id,

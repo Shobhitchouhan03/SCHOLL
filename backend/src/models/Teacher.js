@@ -145,6 +145,11 @@ const teacherSchema = new mongoose.Schema(
       sick: { type: Number, default: 10 },
       earned: { type: Number, default: 15 },
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

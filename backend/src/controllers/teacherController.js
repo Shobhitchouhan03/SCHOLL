@@ -1090,7 +1090,7 @@ export const getClassSubjectTeachers = async (req, res) => {
       .populate('teacherId', 'name employeeId email department designation')
       .populate('subjectId', 'name code subjectType');
 
-    const availableTeachers = await Teacher.find({ schoolId, isActive: true })
+    const availableTeachers = await Teacher.find({ schoolId, isActive: { $ne: false } })
       .select('_id name employeeId designation department')
       .sort({ name: 1 });
 
