@@ -79,9 +79,17 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
           { label: 'Attendance', path: '/teacher/attendance/mark', icon: ShieldCheck },
           { label: 'Marks', path: '/teacher/exams', icon: Award },
           { label: 'Leave', path: '/teacher/leave', icon: CalendarDays },
-          { label: 'Library', path: '/teacher/library', icon: Library },
-          { label: 'Transport', path: '/teacher/transport', icon: Bus },
           { label: 'Announcements', path: '/teacher/notices', icon: Bell },
+        ];
+      case 'hr':
+        return [
+          { label: 'HR Overview', path: '/principal/hr', icon: LayoutDashboard },
+          { label: 'Staff Directory', path: '/principal/teachers', icon: Users },
+          { label: 'Staff Attendance', path: '/principal/hr/staff-attendance', icon: ShieldCheck },
+          { label: 'Library Operations', path: '/principal/library/books', icon: Library },
+          { label: 'Transport Operations', path: '/principal/transport/vehicles', icon: Bus },
+          { label: 'Leave Approvals', path: '/principal/hr/leave', icon: CalendarDays },
+          { label: 'HR Reports', path: '/principal/hr/reports', icon: FileSpreadsheet },
         ];
       case 'parent':
         return [

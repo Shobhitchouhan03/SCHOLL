@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
-      enum: ['superAdmin', 'principal', 'teacher', 'parent', 'accountant'],
+      enum: ['superAdmin', 'principal', 'teacher', 'parent', 'accountant', 'hr'],
     },
     teacherProfileId: {
       type: mongoose.Schema.Types.ObjectId,

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.19.0] - 2026-08-14
+
+### Added & Refined
+- **TEACHER REBUILD STEP T2 — Final Staff Role Architecture & Principal Access Cleanup**:
+  - Added `'hr'` to `User` role enum schema (`User.js`).
+  - Restricted Principal account creation endpoint (`principalController.js`) to staff roles only: `teacher`, `accountant`, `hr` (blocking direct `parent`/`student` creation by Principal).
+  - Enforced server-side restriction on `createStudent` in `studentController.js` restricting student admission strictly to Class Teachers (`role: 'teacher'`).
+  - Removed **Library** and **Transport** items from Teacher navigation (`Sidebar.jsx`).
+  - Transferred Library and Transport ownership to HR / Common Staff (`role: 'hr'`) in `libraryRoutes.js`, `transportRoutes.js`, and `Sidebar.jsx`.
+  - Updated `AddStudentPage.jsx` to display a 403 Forbidden banner when non-class staff attempt direct student admission.
+  - Created `backend/src/tests/stepT2RoleArchitecture.test.js` regression suite.
+  - *(Note: Production deployment deferred until final Teacher Rebuild step)*.
+
 ## [3.18.0] - 2026-08-14
 
 ### Added & Refined

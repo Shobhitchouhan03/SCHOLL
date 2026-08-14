@@ -25,6 +25,13 @@ export const createStudent = async (req, res) => {
     let finalClassId = req.body.currentClassId;
     let finalSectionId = req.body.currentSectionId;
 
+    if (req.user.role !== 'teacher') {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only authorized Class Teachers can admit new students. Principals and staff cannot directly admit students.',
+      });
+    }
+
     if (req.user.role === 'teacher') {
       const teacher = await resolveTeacherProfile(req);
       if (!teacher) {

@@ -94,6 +94,11 @@ const AddStudentPage = () => {
 
   const fetchReferences = async () => {
     try {
+      if (user?.role === 'principal' || user?.role === 'accountant' || user?.role === 'hr') {
+        setTeacherForbidden(true);
+        return;
+      }
+
       if (user?.role === 'teacher') {
         const profileRes = await api.get('/teacher/me');
         if (profileRes.data.success) {
@@ -218,13 +223,13 @@ const AddStudentPage = () => {
               </div>
               <h2 className="text-lg font-bold text-darkBrown">Access Restricted</h2>
               <p className="text-xs text-textMuted font-semibold">
-                Only the assigned Class Teacher can admit students.
+                Principals and non-class staff cannot directly admit students. Student admission is managed exclusively by assigned Class Teachers.
               </p>
               <button
-                onClick={() => navigate('/teacher/students')}
+                onClick={() => navigate(user?.role === 'teacher' ? '/teacher/students' : '/principal/students')}
                 className="px-5 py-2.5 bg-chestnut text-white font-bold text-xs rounded-xl hover:bg-darkBrown transition-colors"
               >
-                Back to My Students
+                Back to Students Directory
               </button>
             </div>
           </main>

@@ -1,24 +1,30 @@
 # Development Progress
 
+> [!NOTE]
+> PRODUCTION DEPLOYMENT DEFERRED UNTIL FINAL TEACHER REBUILD STEP.
+
 ## Last Completed Patch
-PATCH STEP T1 — Canonical Teacher Profile & Production Data Repair (Verified).
+STEP T2 — Final Staff Role Architecture + Principal Access Cleanup (Local Verification Completed).
 
 ## Current Architecture
-Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Supports role-based access control (`superAdmin`, `principal`, `accountant`, `teacher`, `parent`), tenant resolution abstraction (`resolveTenantFromRequest`) by route slug (`/s/:schoolSlug`), custom FQDN domain (`littlestarsschool.com`), subdomain (`little-stars.yourdomain.com`), or authenticated session `schoolId`. Bi-directional canonical relationship (`User.teacherProfileId` <-> `Teacher._id` and `Teacher.userId` <-> `User._id`). Centralized `resolveTeacherProfile` with tenant-safe idempotent legacy repair matching ONLY strong identifiers (`stored userId`, `employeeId`, `loginId`, `normalized email` — NEVER name alone) within the same `schoolId`. `GET /api/teacher/me` returns server-derived `capabilities`, `primaryClassTeacherAssignment`, `subjectAssignments`, and real database-driven assignment metrics. 100% master verification pass, clean production build (1667 modules), and 15 unit test suites passed.
+Multi-tenant School Management SaaS built on Node.js/Express, MongoDB (Mongoose with strict `schoolId` indexing), and React/Vite. Role architecture updated with strict separation: `superAdmin` (tenant setup), `principal` (executive setup, staff creation, oversight — no direct student/parent admission), `teacher` (academic operations, class/subject assignments — Library/Transport removed), `hr` (staff operations, Library & Transport ownership), `accountant` (financial operations only), and `parent` (linked children view). Server-enforced role restrictions on `createStudent` (restricted to Class Teachers) and `createUser` (Principal creates Teacher, Accountant, HR accounts only). 100% master verification pass (16 unit test suites), clean Vite frontend build.
 
 ## Completed
-- **1. Canonical Account Relationship**: Added `teacherProfileId` to `User` model schema (ref `Teacher`, indexed) and updated `Teacher` model schema to store `userId` (ref `User`, indexed) and `loginId`.
-- **2. Safe Idempotent Legacy Repair**: Upgraded `resolveTeacherProfile` in `backend/src/utils/teacherResolver.js` to match legacy teacher accounts strictly by strong identifiers (`userId`, `employeeId`, `loginId`, `email`) within the same `schoolId` (NEVER matching by name alone), automatically persisting bi-directional canonical links on first request.
-- **3. Onboarding Bi-directional Persistence**: Updated `createTeacher` in `teacherController.js` to persist `newUser.teacherProfileId = newTeacher._id` and `newTeacher.userId = newUser._id` atomically upon teacher creation.
-- **4. Enhanced `GET /api/teacher/me` Payload**: Enhanced `getTeacherSelfProfile` response structure to return `primaryClassTeacherAssignment`, `subjectAssignments`, server-derived `capabilities`, and real database student/salary/leave metrics.
-- **5. Status-Aware Frontend Error Handling**: Updated `TeacherDashboard.jsx` to render status-aware error banners distinguishing HTTP 401 (auth expired), 403 (forbidden), 404 (missing profile/route), 409 (conflict), and 500 (server fault), preventing generic error masking.
-- **6. Regression Test Suite**: Created `backend/src/tests/teacherProfileCanonical.test.js` validating canonical profile resolution, strong identifier legacy repair, tenant isolation, and Express route contracts. Passed `npm run verify` 100%.
+- **T1: Canonical Teacher Profile & Data Repair**: Established bi-directional `User.teacherProfileId` <-> `Teacher._id` / `Teacher.userId` <-> `User._id` relationship. Centralized `resolveTeacherProfile` with safe idempotent legacy repair matching ONLY strong identifiers (`stored userId`, `employeeId`, `loginId`, `normalized email` — NEVER name alone) within `schoolId`. `GET /api/teacher/me` returns server-derived `capabilities`, `primaryClassTeacherAssignment`, `subjectAssignments`, and real database metrics.
+- **T2: Final Staff Role Architecture & Principal Cleanup**:
+  - Restricted Principal creation roles in `principalController.js` to `teacher`, `accountant`, and `hr` only (blocking direct student/parent creation by Principal).
+  - Server-enforced `createStudent` restriction in `studentController.js` locking student admission exclusively to Class Teachers (`role: 'teacher'`).
+  - Removed Library & Transport from Teacher sidebar (`Sidebar.jsx`) and restricted backend routes.
+  - Granted HR/Common Staff (`role: 'hr'`) ownership of Library and Transport modules (`libraryRoutes.js`, `transportRoutes.js`, `Sidebar.jsx`).
+  - Updated Accountant UI/routes to financial operations only.
+  - Updated `AddStudentPage.jsx` with 403 Forbidden banner for non-class staff attempting direct student admission.
+  - Created `stepT2RoleArchitecture.test.js` regression suite. Passed `npm run verify` 100%.
 
 ## Partial
 - None.
 
 ## Pending
-- None. All Step T1 requirements verified and ready for deployment sync.
+- Final Teacher Rebuild Step: Production deployment & live Netlify + Render sync.
 
 ## Known Bugs
 - None (0 runtime errors, 0 build warnings).

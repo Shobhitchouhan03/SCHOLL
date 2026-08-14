@@ -30,10 +30,10 @@ export const createUser = async (req, res) => {
       });
     }
 
-    if (!['teacher', 'parent', 'accountant'].includes(role)) {
+    if (!['teacher', 'accountant', 'hr'].includes(role)) {
       return res.status(400).json({
         success: false,
-        message: 'Principal can create Teacher, Parent, or Accountant accounts.',
+        message: 'Principal can create Teacher, Accountant, or HR/Common Staff accounts only.',
       });
     }
 

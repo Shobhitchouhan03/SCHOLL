@@ -25,30 +25,30 @@ import {
 const router = express.Router();
 
 // PRINCIPAL TRANSPORT ROUTES
-router.get('/principal/transport/configuration', authenticate, authorizeRoles('principal'), getTransportConfiguration);
-router.patch('/principal/transport/configuration', authenticate, authorizeRoles('principal'), updateTransportConfiguration);
+router.get('/principal/transport/configuration', authenticate, authorizeRoles('principal', 'hr'), getTransportConfiguration);
+router.patch('/principal/transport/configuration', authenticate, authorizeRoles('principal', 'hr'), updateTransportConfiguration);
 
-router.get('/principal/transport/vehicles', authenticate, authorizeRoles('principal'), getVehicles);
-router.post('/principal/transport/vehicles', authenticate, authorizeRoles('principal'), createVehicle);
-router.patch('/principal/transport/vehicles/:vehicleId/status', authenticate, authorizeRoles('principal'), updateVehicleStatus);
+router.get('/principal/transport/vehicles', authenticate, authorizeRoles('principal', 'hr'), getVehicles);
+router.post('/principal/transport/vehicles', authenticate, authorizeRoles('principal', 'hr'), createVehicle);
+router.patch('/principal/transport/vehicles/:vehicleId/status', authenticate, authorizeRoles('principal', 'hr'), updateVehicleStatus);
 
-router.get('/principal/transport/staff', authenticate, authorizeRoles('principal'), getStaff);
-router.post('/principal/transport/staff', authenticate, authorizeRoles('principal'), createStaff);
+router.get('/principal/transport/staff', authenticate, authorizeRoles('principal', 'hr'), getStaff);
+router.post('/principal/transport/staff', authenticate, authorizeRoles('principal', 'hr'), createStaff);
 
 router.get('/principal/transport/routes', authenticate, authorizeRoles('principal', 'teacher'), getRoutes);
-router.post('/principal/transport/routes', authenticate, authorizeRoles('principal'), createRoute);
+router.post('/principal/transport/routes', authenticate, authorizeRoles('principal', 'hr'), createRoute);
 
 router.get('/principal/transport/routes/:routeId/stops', authenticate, authorizeRoles('principal', 'teacher'), getRouteStops);
-router.post('/principal/transport/routes/:routeId/stops', authenticate, authorizeRoles('principal'), addRouteStop);
+router.post('/principal/transport/routes/:routeId/stops', authenticate, authorizeRoles('principal', 'hr'), addRouteStop);
 
-router.get('/principal/transport/assignments', authenticate, authorizeRoles('principal'), getAssignments);
-router.post('/principal/transport/assignments', authenticate, authorizeRoles('principal'), createAssignment);
+router.get('/principal/transport/assignments', authenticate, authorizeRoles('principal', 'hr'), getAssignments);
+router.post('/principal/transport/assignments', authenticate, authorizeRoles('principal', 'hr'), createAssignment);
 
-router.get('/principal/transport/maintenance', authenticate, authorizeRoles('principal'), getMaintenanceLogs);
-router.post('/principal/transport/maintenance', authenticate, authorizeRoles('principal'), createMaintenance);
+router.get('/principal/transport/maintenance', authenticate, authorizeRoles('principal', 'hr'), getMaintenanceLogs);
+router.post('/principal/transport/maintenance', authenticate, authorizeRoles('principal', 'hr'), createMaintenance);
 
-router.get('/principal/transport/fuel-logs', authenticate, authorizeRoles('principal'), getFuelLogs);
-router.post('/principal/transport/fuel-logs', authenticate, authorizeRoles('principal'), createFuelLog);
+router.get('/principal/transport/fuel-logs', authenticate, authorizeRoles('principal', 'hr'), getFuelLogs);
+router.post('/principal/transport/fuel-logs', authenticate, authorizeRoles('principal', 'hr'), createFuelLog);
 
 // TEACHER TRANSPORT ROUTES
 router.get('/teacher/transport/routes/:routeId/students', authenticate, authorizeRoles('teacher', 'principal'), getTeacherRouteStudents);
