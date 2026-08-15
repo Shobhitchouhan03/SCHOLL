@@ -89,25 +89,35 @@ const TeacherMarksEntryPage = () => {
 
   const updateStudentField = (studentId, field, val) => {
     setRoster((prev) =>
-      prev.map((item) =>
-        item.studentId === studentId
-          ? {
-              ...item,
-              [field]: val,
-              totalMarks:
-                field === 'theoryMarks'
-                  ? Number(val || 0) + Number(item.practicalMarks || 0)
-                  : field === 'practicalMarks'
-                  ? Number(item.theoryMarks || 0) + Number(val || 0)
-                  : item.totalMarks,
-            }
-          : item
-      )
+      prev.map((item) => {
+        if (item.studentId !== studentId) return item;
+        const updated = { ...item, [field]: val };
+        if (field === 'theoryMarks' || field === 'practicalMarks') {
+          const t = field === 'theoryMarks' ? Number(val || 0) : Number(item.theoryMarks || 0);
+          const p = field === 'practicalMarks' ? Number(val || 0) : Number(item.practicalMarks || 0);
+          updated.totalMarks = t + p;
+        }
+        return updated;
+      })
     );
   };
 
   const handleSaveMarks = async (targetStatus) => {
     if (!selectedScheduleId || !selectedSectionId) return;
+    const maxAllowed = currentSchedule?.maximumMarks || 100;
+
+    // Validation check before submission
+    for (const r of roster) {
+      if (Number(r.theoryMarks) < 0 || Number(r.practicalMarks) < 0) {
+        alert(`Marks cannot be negative for student ${r.fullName}.`);
+        return;
+      }
+      if (Number(r.totalMarks) > maxAllowed) {
+        alert(`Total marks for student ${r.fullName} (${r.totalMarks}) exceed maximum marks (${maxAllowed}).`);
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -123,7 +133,7 @@ const TeacherMarksEntryPage = () => {
         loadRoster();
       }
     } catch (err) {
-      alert(err.customMessage || 'Failed to save marks.');
+      alert(err.response?.data?.message || err.customMessage || 'Failed to save marks.');
     } finally {
       setSubmitting(false);
     }
@@ -215,7 +225,8 @@ const TeacherMarksEntryPage = () => {
                       <th className="py-3 px-4">Attendance Status</th>
                       <th className="py-3 px-4">Theory Marks</th>
                       <th className="py-3 px-4">Practical Marks</th>
-                      <th className="py-3 px-4">Total Marks</th>
+                      <th className="py-3 px-4">Total / Max</th>
+                      <th className="py-3 px-4">Remark</th>
                       <th className="py-3 px-4 text-right rounded-r-xl">Status</th>
                     </tr>
                   </thead>
@@ -266,7 +277,18 @@ const TeacherMarksEntryPage = () => {
                         </td>
 
                         <td className="py-3 px-4 font-mono font-bold text-chestnut text-sm">
-                          {r.totalMarks}
+                          {r.totalMarks} / {currentSchedule?.maximumMarks || 100}
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <input
+                            type="text"
+                            placeholder="Optional remark"
+                            disabled={isSubmittedOrApproved}
+                            value={r.remark || ''}
+                            onChange={(e) => updateStudentField(r.studentId, 'remark', e.target.value)}
+                            className="w-32 px-2 py-1 bg-surface border border-almond/60 rounded-lg text-xs text-darkBrown"
+                          />
                         </td>
 
                         <td className="py-3 px-4 text-right">

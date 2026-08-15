@@ -12,6 +12,16 @@ import { AcademicSession } from '../models/AcademicSession.js';
 import { School } from '../models/School.js';
 import { getTenantSchoolId, resolveTeacherProfile } from '../utils/teacherResolver.js';
 
+const getIdStr = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    if (val._id && val._id !== val) return getIdStr(val._id);
+    if (typeof val.toString === 'function') return val.toString();
+  }
+  return String(val);
+};
+
 // ==========================================
 // PRINCIPAL & AUTHORIZED TEACHER STUDENT APIS
 // ==========================================
@@ -465,7 +475,7 @@ export const getStudents = async (req, res) => {
 };
 
 // @desc    Get Detailed Student Profile
-// @route   GET /api/principal/students/:studentId
+// @route   GET /api/principal/students/:studentId & GET /api/teacher/students/:studentId
 // @access  Private (Principal, Teacher)
 export const getStudentById = async (req, res) => {
   try {
@@ -473,7 +483,7 @@ export const getStudentById = async (req, res) => {
     const { studentId } = req.params;
 
     const student = await Student.findOne({ _id: studentId, schoolId })
-      .populate('currentAcademicSessionId', 'name')
+      .populate('currentAcademicSessionId', 'name isCurrent')
       .populate('currentClassId', 'name displayName category')
       .populate('currentSectionId', 'name roomNumber')
       .populate({
@@ -485,16 +495,41 @@ export const getStudentById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student record not found.' });
     }
 
-    // Teacher check
+    let canManageStudent = true;
+    let isClassTeacherForStudent = true;
+
+    // Teacher authorization check
     if (req.user.role === 'teacher') {
       const teacherProfile = await resolveTeacherProfile(req);
-      const assignedSections = (teacherProfile?.assignedSectionIds || []).map(String);
-      if (teacherProfile?.isClassTeacher && teacherProfile.classTeacherSectionId) {
-        assignedSections.push(String(teacherProfile.classTeacherSectionId));
+      if (!teacherProfile) {
+        return res.status(403).json({ success: false, message: 'Teacher profile missing.' });
       }
-      if (!assignedSections.includes(String(student.currentSectionId._id || student.currentSectionId))) {
+
+      const assignedClassIdStr = getIdStr(teacherProfile.classTeacherClassId);
+      const assignedSectionIdStr = getIdStr(teacherProfile.classTeacherSectionId);
+      const studentClassIdStr = getIdStr(student.currentClassId);
+      const studentSectionIdStr = getIdStr(student.currentSectionId);
+
+      const isClassTeacher = Boolean(
+        assignedClassIdStr &&
+        assignedSectionIdStr &&
+        assignedClassIdStr === studentClassIdStr &&
+        assignedSectionIdStr === studentSectionIdStr
+      );
+
+      const assignedSections = (teacherProfile.assignedSectionIds || []).map(getIdStr);
+      const assignedClasses = (teacherProfile.assignedClassIds || []).map(getIdStr);
+      if (assignedSectionIdStr) assignedSections.push(assignedSectionIdStr);
+      if (assignedClassIdStr) assignedClasses.push(assignedClassIdStr);
+
+      const hasAccess = assignedSections.includes(studentSectionIdStr) || assignedClasses.includes(studentClassIdStr);
+
+      if (!hasAccess) {
         return res.status(403).json({ success: false, message: 'Access denied to unassigned student.' });
       }
+
+      canManageStudent = isClassTeacher;
+      isClassTeacherForStudent = isClassTeacher;
     }
 
     const enrollments = await StudentAcademicEnrollment.find({ schoolId, studentId: student._id })
@@ -514,6 +549,8 @@ export const getStudentById = async (req, res) => {
       enrollments,
       documents,
       statusHistory,
+      canManageStudent,
+      isClassTeacherForStudent,
     });
   } catch (error) {
     console.error('Get student by id error:', error);
@@ -553,12 +590,36 @@ export const updateStudent = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student record not found.' });
     }
 
+    // Teacher authorization check: MUST be Class Teacher of this student
+    if (req.user.role === 'teacher') {
+      const teacherProfile = await resolveTeacherProfile(req);
+      const assignedClassIdStr = getIdStr(teacherProfile?.classTeacherClassId);
+      const assignedSectionIdStr = getIdStr(teacherProfile?.classTeacherSectionId);
+      const studentClassIdStr = getIdStr(student.currentClassId);
+      const studentSectionIdStr = getIdStr(student.currentSectionId);
+
+      const isClassTeacher = Boolean(
+        assignedClassIdStr &&
+        assignedSectionIdStr &&
+        assignedClassIdStr === studentClassIdStr &&
+        assignedSectionIdStr === studentSectionIdStr
+      );
+
+      if (!isClassTeacher) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Only the assigned Class Teacher can edit student profiles in their class.',
+        });
+      }
+    } else if (req.user.role !== 'principal') {
+      return res.status(403).json({ success: false, message: 'Forbidden: Unauthorized to edit student profiles.' });
+    }
+
     if (firstName) student.firstName = firstName.trim();
     if (middleName !== undefined) student.middleName = middleName.trim();
     if (lastName !== undefined) student.lastName = lastName.trim();
 
     student.fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' ').trim();
-
     if (dateOfBirth) student.dateOfBirth = new Date(dateOfBirth);
     if (gender) student.gender = gender;
     if (bloodGroup !== undefined) student.bloodGroup = bloodGroup.trim();
@@ -568,12 +629,11 @@ export const updateStudent = async (req, res) => {
     if (religion !== undefined) student.religion = religion.trim();
     if (category !== undefined) student.category = category.trim();
     if (house !== undefined) student.house = house.trim();
-    if (address) student.address = address;
+    if (address !== undefined) student.address = address;
     if (previousSchool !== undefined) student.previousSchool = previousSchool.trim();
     if (medicalNotes !== undefined) student.medicalNotes = medicalNotes.trim();
     if (emergencyContact !== undefined) student.emergencyContact = emergencyContact.trim();
-    if (rollNumber !== undefined) student.rollNumber = rollNumber ? Number(rollNumber) : null;
-    student.updatedBy = req.user._id;
+    if (rollNumber !== undefined) student.rollNumber = Number(rollNumber);
 
     await student.save();
 
@@ -582,7 +642,7 @@ export const updateStudent = async (req, res) => {
       actor: req.user._id,
       action: 'UPDATE_STUDENT',
       entity: 'Student',
-      description: `Updated profile for student ${student.fullName}.`,
+      description: `Updated profile details for student ${student.fullName}.`,
     });
 
     return res.status(200).json({
@@ -593,6 +653,186 @@ export const updateStudent = async (req, res) => {
   } catch (error) {
     console.error('Update student error:', error);
     return res.status(500).json({ success: false, message: 'Failed to update student profile.' });
+  }
+};
+
+// @desc    Add Student Document
+// @route   POST /api/principal/students/:studentId/documents & POST /api/teacher/students/:studentId/documents
+// @access  Private (Principal, Class Teacher)
+export const addStudentDocument = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const { studentId } = req.params;
+    const { documentType, documentName, documentUrl, issueDate, expiryDate, notes } = req.body;
+
+    if (!documentType || !documentName) {
+      return res.status(400).json({ success: false, message: 'Document type and document name are required.' });
+    }
+
+    const student = await Student.findOne({ _id: studentId, schoolId });
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student record not found.' });
+    }
+
+    // Teacher authorization check: MUST be Class Teacher of this student
+    if (req.user.role === 'teacher') {
+      const teacherProfile = await resolveTeacherProfile(req);
+      if (!teacherProfile) {
+        return res.status(403).json({ success: false, message: 'Teacher profile missing.' });
+      }
+
+      const assignedClassIdStr = getIdStr(teacherProfile.classTeacherClassId);
+      const assignedSectionIdStr = getIdStr(teacherProfile.classTeacherSectionId);
+      const studentClassIdStr = getIdStr(student.currentClassId);
+      const studentSectionIdStr = getIdStr(student.currentSectionId);
+
+      const isClassTeacher = Boolean(
+        assignedClassIdStr &&
+        assignedSectionIdStr &&
+        assignedClassIdStr === studentClassIdStr &&
+        assignedSectionIdStr === studentSectionIdStr
+      );
+
+      if (!isClassTeacher) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Only the assigned Class Teacher can upload documents for students in their class.',
+        });
+      }
+    } else if (req.user.role !== 'principal') {
+      return res.status(403).json({ success: false, message: 'Forbidden: Unauthorized to upload student documents.' });
+    }
+
+    const finalDocUrl = (documentUrl && documentUrl.trim()) ? documentUrl.trim() : `https://storage.schoolsaas.com/docs/${Date.now()}_${documentName.replace(/\s+/g, '_')}.pdf`;
+
+    const doc = await StudentDocument.create({
+      schoolId,
+      studentId: student._id,
+      documentType: documentType.trim(),
+      documentName: documentName.trim(),
+      documentUrl: finalDocUrl,
+      notes: (notes || '').trim(),
+      issueDate: issueDate ? new Date(issueDate) : null,
+      expiryDate: expiryDate ? new Date(expiryDate) : null,
+      uploadedBy: req.user._id,
+      isVerified: true,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Document uploaded successfully.',
+      document: doc,
+    });
+  } catch (error) {
+    console.error('Add student document error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to add document.' });
+  }
+};
+
+// @desc    Reset Student / Parent Login Password
+// @route   POST /api/principal/students/:studentId/reset-password & POST /api/teacher/students/:studentId/reset-password
+// @access  Private (Principal, Class Teacher)
+export const resetStudentCredential = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const { studentId } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.trim().length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+    }
+
+    const student = await Student.findOne({ _id: studentId, schoolId })
+      .populate({
+        path: 'parentAccountId',
+        populate: { path: 'userId' },
+      });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student record not found.' });
+    }
+
+    // Security check: If teacher, MUST be the Class Teacher of student's assigned class & section!
+    if (req.user.role === 'teacher') {
+      const teacherProfile = await resolveTeacherProfile(req);
+      if (!teacherProfile) {
+        return res.status(403).json({ success: false, message: 'Teacher profile missing.' });
+      }
+
+      const assignedClassIdStr = getIdStr(teacherProfile.classTeacherClassId);
+      const assignedSectionIdStr = getIdStr(teacherProfile.classTeacherSectionId);
+      const studentClassIdStr = getIdStr(student.currentClassId);
+      const studentSectionIdStr = getIdStr(student.currentSectionId);
+
+      const isClassTeacherForThisStudent = Boolean(
+        assignedClassIdStr &&
+        assignedSectionIdStr &&
+        assignedClassIdStr === studentClassIdStr &&
+        assignedSectionIdStr === studentSectionIdStr
+      );
+
+      if (!isClassTeacherForThisStudent) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Only the assigned Class Teacher can reset credentials for students in their class.',
+        });
+      }
+    } else if (req.user.role !== 'principal') {
+      return res.status(403).json({ success: false, message: 'Forbidden: Unauthorized to reset credentials.' });
+    }
+
+    // Determine target User account (If student has user account, use that. Otherwise use parent account's User)
+    let targetUser = null;
+    let accountType = 'Parent / Family Account';
+
+    if (student.userId) {
+      targetUser = await User.findById(student.userId);
+      accountType = 'Student Account';
+    }
+
+    if (!targetUser && student.parentAccountId) {
+      const family = student.parentAccountId;
+      if (family.userId) {
+        targetUser = typeof family.userId === 'object' && family.userId._id
+          ? family.userId
+          : await User.findById(family.userId);
+      }
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'No associated login account found for this student or parent.',
+      });
+    }
+
+    targetUser.password = newPassword.trim();
+    await targetUser.save(); // User pre-save hook hashes password cleanly with bcrypt
+
+    const schoolDoc = await School.findById(schoolId);
+
+    await AuditLog.create({
+      schoolId,
+      actor: req.user._id,
+      action: 'RESET_CREDENTIALS',
+      entity: 'User',
+      description: `Reset password for ${accountType} linked to student ${student.fullName}.`,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password updated successfully.',
+      credentials: {
+        schoolCode: schoolDoc?.schoolCode || schoolDoc?.code || '',
+        accountType,
+        loginId: targetUser.loginId,
+        rawPassword: newPassword.trim(),
+        studentName: student.fullName,
+      },
+    });
+  } catch (error) {
+    console.error('Reset student credential error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to reset password.' });
   }
 };
 
@@ -644,47 +884,6 @@ export const updateStudentStatus = async (req, res) => {
   } catch (error) {
     console.error('Update student status error:', error);
     return res.status(500).json({ success: false, message: 'Failed to update student status.' });
-  }
-};
-
-// @desc    Add Student Document
-// @route   POST /api/principal/students/:studentId/documents
-// @access  Private (Principal, Class Teacher)
-export const addStudentDocument = async (req, res) => {
-  try {
-    const schoolId = getTenantSchoolId(req);
-    const { studentId } = req.params;
-    const { documentType, documentName, documentUrl, issueDate, expiryDate } = req.body;
-
-    if (!documentType || !documentName || !documentUrl) {
-      return res.status(400).json({ success: false, message: 'Document type, name, and URL are required.' });
-    }
-
-    const student = await Student.findOne({ _id: studentId, schoolId });
-    if (!student) {
-      return res.status(404).json({ success: false, message: 'Student record not found.' });
-    }
-
-    const doc = await StudentDocument.create({
-      schoolId,
-      studentId: student._id,
-      documentType: documentType.trim(),
-      documentName: documentName.trim(),
-      documentUrl: documentUrl.trim(),
-      issueDate: issueDate ? new Date(issueDate) : null,
-      expiryDate: expiryDate ? new Date(expiryDate) : null,
-      uploadedBy: req.user._id,
-      isVerified: true,
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: 'Document uploaded successfully.',
-      document: doc,
-    });
-  } catch (error) {
-    console.error('Add student document error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to add document.' });
   }
 };
 

@@ -58,6 +58,7 @@ try {
     'src/tests/stepT13RoleSessionHotfix.test.js',
     'src/tests/stepT14StudentAdmissionHotfix.test.js',
     'src/tests/stepT15ParentLoginHotfix.test.js',
+    'src/tests/stepT16StudentProfileAndMarksHotfix.test.js',
   ];
 
   for (const testFile of unitTests) {

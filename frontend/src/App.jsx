@@ -870,6 +870,14 @@ function App() {
             }
           />
           <Route
+            path="/teacher/students/:studentId"
+            element={
+              <RoleRoute allowedRoles={['teacher', 'principal']}>
+                <StudentProfilePage />
+              </RoleRoute>
+            }
+          />
+          <Route
             path="/teacher/subject-teachers"
             element={
               <RoleRoute allowedRoles={['teacher']}>

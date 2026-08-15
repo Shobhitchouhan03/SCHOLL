@@ -18,9 +18,9 @@ import {
 const router = express.Router();
 
 // PRINCIPAL EXAM ROUTES
-router.post('/principal/exams', authenticate, authorizeRoles('principal'), createExam);
+router.post('/principal/exams', authenticate, authorizeRoles('principal', 'teacher'), createExam);
 router.get('/principal/exams', authenticate, authorizeRoles('principal', 'teacher'), getExams);
-router.post('/principal/exams/:examId/schedules', authenticate, authorizeRoles('principal'), createExamSchedule);
+router.post('/principal/exams/:examId/schedules', authenticate, authorizeRoles('principal', 'teacher'), createExamSchedule);
 router.get('/principal/exams/:examId/schedules', authenticate, authorizeRoles('principal', 'teacher'), getExamSchedules);
 router.get('/principal/exams/:examId/marks-review', authenticate, authorizeRoles('principal'), getPrincipalMarksReview);
 router.post('/principal/marks/:marksId/approve', authenticate, authorizeRoles('principal'), approveOrReturnStudentMarks);
@@ -30,6 +30,8 @@ router.post('/principal/promotions', authenticate, authorizeRoles('principal'), 
 
 // TEACHER EXAM ROUTES
 router.get('/teacher/exams', authenticate, authorizeRoles('teacher'), getExams);
+router.post('/teacher/exams', authenticate, authorizeRoles('teacher'), createExam);
+router.post('/teacher/exams/:examId/schedules', authenticate, authorizeRoles('teacher'), createExamSchedule);
 router.get('/teacher/exams/:examId/marks-entry', authenticate, authorizeRoles('teacher'), getTeacherMarksEntryRoster);
 router.post('/teacher/exams/:examId/marks/submit', authenticate, authorizeRoles('teacher'), saveTeacherStudentMarks);
 

@@ -113,12 +113,12 @@ export const resolveTeacherProfile = async (req, populateFields = '') => {
       await User.updateOne({ _id: user._id }, { $set: { teacherProfileId: teacher._id } }).catch(() => {});
     }
 
-    if (saveTeacher) {
+    if (saveTeacher && typeof teacher.save === 'function') {
       await teacher.save().catch(() => {});
     }
   }
 
-  if (teacher && populateFields) {
+  if (teacher && populateFields && typeof teacher.populate === 'function') {
     await teacher.populate(populateFields);
   }
 

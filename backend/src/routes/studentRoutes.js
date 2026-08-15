@@ -7,6 +7,7 @@ import {
   updateStudent,
   updateStudentStatus,
   addStudentDocument,
+  resetStudentCredential,
   deleteStudent,
   getFamilies,
   getFamilyById,
@@ -28,11 +29,12 @@ const router = express.Router();
 // ==========================================
 router.post('/principal/students', authenticate, authorizeRoles('principal', 'teacher'), createStudent);
 router.get('/principal/students', authenticate, authorizeRoles('principal'), getStudents);
-router.get('/principal/students/:studentId', authenticate, authorizeRoles('principal'), getStudentById);
+router.get('/principal/students/:studentId', authenticate, authorizeRoles('principal', 'teacher'), getStudentById);
 router.put('/principal/students/:studentId', authenticate, authorizeRoles('principal', 'teacher'), updateStudent);
 router.patch('/principal/students/:studentId/status', authenticate, authorizeRoles('principal'), updateStudentStatus);
 router.delete('/principal/students/:studentId', authenticate, authorizeRoles('principal'), deleteStudent);
 router.post('/principal/students/:studentId/documents', authenticate, authorizeRoles('principal', 'teacher'), addStudentDocument);
+router.post('/principal/students/:studentId/reset-password', authenticate, authorizeRoles('principal', 'teacher'), resetStudentCredential);
 
 // ==========================================
 // PRINCIPAL FAMILY ACCOUNT MANAGEMENT ROUTES
@@ -52,6 +54,8 @@ router.get('/teacher/students', authenticate, authorizeRoles('teacher'), getStud
 router.post('/teacher/students', authenticate, authorizeRoles('teacher'), createStudent);
 router.get('/teacher/students/:studentId', authenticate, authorizeRoles('teacher'), getStudentById);
 router.patch('/teacher/students/:studentId', authenticate, authorizeRoles('teacher'), updateStudent);
+router.post('/teacher/students/:studentId/documents', authenticate, authorizeRoles('teacher'), addStudentDocument);
+router.post('/teacher/students/:studentId/reset-password', authenticate, authorizeRoles('teacher'), resetStudentCredential);
 
 // ==========================================
 // PARENT PORTAL SELF ROUTES
