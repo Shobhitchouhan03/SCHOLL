@@ -28,6 +28,9 @@ const TeacherAttendanceMarkingPage = () => {
   // References
   const [teacherProfile, setTeacherProfile] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
+  const [assignedClasses, setAssignedClasses] = useState([]);
+  const [assignedSections, setAssignedSections] = useState([]);
+  const [fetchError, setFetchError] = useState(null);
 
   // Filters
   const [selectedClassId, setSelectedClassId] = useState('');
@@ -45,30 +48,40 @@ const TeacherAttendanceMarkingPage = () => {
   const fetchOptions = async () => {
     try {
       setLoadingOptions(true);
+      setFetchError(null);
       const res = await api.get('/teacher/attendance/options');
       if (res.data.success) {
         setTeacherProfile(res.data.teacher);
         setCurrentSession(res.data.currentSession);
 
-        // Auto-select first class & section
-        const teacher = res.data.teacher;
+        const classes = res.data.assignedClasses || res.data.teacher?.assignedClasses || [];
+        const sections = res.data.assignedSections || res.data.teacher?.assignedSections || [];
+        setAssignedClasses(classes);
+        setAssignedSections(sections);
+
+        // Auto-select class & section
         let defaultClass = '';
         let defaultSection = '';
 
-        if (teacher.isClassTeacher && teacher.classTeacherSectionId) {
-          defaultClass = teacher.classTeacherClassId?._id || teacher.classTeacherClassId;
-          defaultSection = teacher.classTeacherSectionId?._id || teacher.classTeacherSectionId;
-        } else if (teacher.assignedSectionIds && teacher.assignedSectionIds.length > 0) {
-          const sec = teacher.assignedSectionIds[0];
-          defaultSection = sec._id || sec;
-          defaultClass = sec.classId?._id || sec.classId || (teacher.assignedClassIds[0]?._id || teacher.assignedClassIds[0]);
+        if (classes.length > 0) {
+          defaultClass = classes[0]._id || classes[0];
+          const relevantSections = sections.filter((sec) => {
+            const cId = sec.classId?._id || sec.classId;
+            return !cId || String(cId) === String(defaultClass);
+          });
+          if (relevantSections.length > 0) {
+            defaultSection = relevantSections[0]._id || relevantSections[0];
+          } else if (sections.length > 0) {
+            defaultSection = sections[0]._id || sections[0];
+          }
         }
 
-        setSelectedClassId(defaultClass || '');
-        setSelectedSectionId(defaultSection || '');
+        setSelectedClassId((prev) => prev || (defaultClass ? String(defaultClass) : ''));
+        setSelectedSectionId((prev) => prev || (defaultSection ? String(defaultSection) : ''));
       }
     } catch (err) {
       console.error('Fetch attendance options error:', err);
+      setFetchError('Unable to load class and section data. Please retry.');
     } finally {
       setLoadingOptions(false);
     }
@@ -102,9 +115,25 @@ const TeacherAttendanceMarkingPage = () => {
     fetchOptions();
   }, []);
 
+  // Update selectedSectionId when selectedClassId changes
+  const handleClassChange = (newClassId) => {
+    setSelectedClassId(newClassId);
+    const relevantSections = assignedSections.filter((sec) => {
+      const cId = sec.classId?._id || sec.classId;
+      return !cId || String(cId) === String(newClassId);
+    });
+    if (relevantSections.length > 0) {
+      setSelectedSectionId(relevantSections[0]._id || relevantSections[0]);
+    } else {
+      setSelectedSectionId('');
+    }
+  };
+
   useEffect(() => {
     if (selectedClassId && selectedSectionId && currentSession?._id) {
       loadStudentRoster();
+    } else {
+      setRoster([]);
     }
   }, [selectedClassId, selectedSectionId, attendanceDate, currentSession]);
 
@@ -188,7 +217,7 @@ const TeacherAttendanceMarkingPage = () => {
             <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={bulkMarkPresent}
-                disabled={isSubmitted || isLocked}
+                disabled={isSubmitted || isLocked || roster.length === 0}
                 className="px-3.5 py-2 bg-success/15 hover:bg-success/25 border border-success/30 text-success rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50"
               >
                 <Check className="w-4 h-4" />
@@ -197,7 +226,7 @@ const TeacherAttendanceMarkingPage = () => {
 
               <button
                 onClick={() => handleSaveAttendance('draft')}
-                disabled={submitting || isSubmitted || isLocked}
+                disabled={submitting || isSubmitted || isLocked || roster.length === 0}
                 className="px-3.5 py-2 bg-surface hover:bg-almond/30 border border-almond/60 text-darkBrown rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50"
               >
                 <Save className="w-4 h-4 text-chestnut" />
@@ -206,7 +235,7 @@ const TeacherAttendanceMarkingPage = () => {
 
               <button
                 onClick={() => setShowSubmitModal(true)}
-                disabled={submitting || isSubmitted || isLocked}
+                disabled={submitting || isSubmitted || isLocked || roster.length === 0}
                 className="px-4 py-2 bg-chestnut hover:bg-darkBrown text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
@@ -215,6 +244,38 @@ const TeacherAttendanceMarkingPage = () => {
             </div>
           </div>
 
+          {/* Fetch Error Warning */}
+          {fetchError && (
+            <div className="bg-danger/10 border border-danger/30 rounded-2xl p-4 flex items-center justify-between gap-3 text-xs text-danger font-medium">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-danger" />
+                <span>{fetchError}</span>
+              </div>
+              <button
+                onClick={fetchOptions}
+                className="px-3 py-1.5 bg-danger text-white rounded-xl text-xs font-bold hover:bg-danger/90 transition-all shrink-0"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* No Assigned Class Notice */}
+          {!loadingOptions && !fetchError && assignedClasses.length === 0 && (
+            <div className="bg-warning/10 border border-warning/30 rounded-2xl p-4 flex items-center gap-3 text-xs text-darkBrown">
+              <AlertCircle className="w-4 h-4 shrink-0 text-warning" />
+              <span>No class or section has been assigned to your teacher profile for daily attendance. Please contact your school administrator.</span>
+            </div>
+          )}
+
+          {/* Missing Session Notice */}
+          {!loadingOptions && !fetchError && !currentSession && (
+            <div className="bg-warning/10 border border-warning/30 rounded-2xl p-4 flex items-center gap-3 text-xs text-darkBrown">
+              <AlertCircle className="w-4 h-4 shrink-0 text-warning" />
+              <span>No active academic session found for this school. Please ask your administrator to configure an academic session in Principal Setup.</span>
+            </div>
+          )}
+
           {/* Scope Selector Bar */}
           <div className="bg-white rounded-2xl p-4 border border-almond/40 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-wrap">
@@ -222,30 +283,46 @@ const TeacherAttendanceMarkingPage = () => {
                 <label className="block text-[10px] font-bold text-textMuted uppercase mb-1">Class</label>
                 <select
                   value={selectedClassId}
-                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  onChange={(e) => handleClassChange(e.target.value)}
                   className="px-3 py-1.5 bg-surface border border-almond/60 rounded-xl text-xs font-bold text-darkBrown focus:outline-none focus:border-chestnut"
                 >
-                  {(teacherProfile?.assignedClassIds || []).map((c) => (
-                    <option key={c._id || c} value={c._id || c}>
-                      {c.name || 'Class'}
-                    </option>
-                  ))}
+                  {assignedClasses.length === 0 ? (
+                    <option value="">No class assigned</option>
+                  ) : (
+                    assignedClasses.map((c) => (
+                      <option key={c._id || c} value={c._id || c}>
+                        {c.name || c.displayName || 'Class'}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-textMuted uppercase mb-1">Section</label>
-                <select
-                  value={selectedSectionId}
-                  onChange={(e) => setSelectedSectionId(e.target.value)}
-                  className="px-3 py-1.5 bg-surface border border-almond/60 rounded-xl text-xs font-bold text-darkBrown focus:outline-none focus:border-chestnut"
-                >
-                  {(teacherProfile?.assignedSectionIds || []).map((sec) => (
-                    <option key={sec._id || sec} value={sec._id || sec}>
-                      Section {sec.name}
-                    </option>
-                  ))}
-                </select>
+                {(() => {
+                  const relevantSections = assignedSections.filter((sec) => {
+                    const cId = sec.classId?._id || sec.classId;
+                    return !cId || String(cId) === String(selectedClassId);
+                  });
+                  return (
+                    <select
+                      value={selectedSectionId}
+                      onChange={(e) => setSelectedSectionId(e.target.value)}
+                      className="px-3 py-1.5 bg-surface border border-almond/60 rounded-xl text-xs font-bold text-darkBrown focus:outline-none focus:border-chestnut"
+                    >
+                      {relevantSections.length === 0 ? (
+                        <option value="">No section assigned</option>
+                      ) : (
+                        relevantSections.map((sec) => (
+                          <option key={sec._id || sec} value={sec._id || sec}>
+                            Section {sec.name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  );
+                })()}
               </div>
 
               <div>
@@ -306,7 +383,11 @@ const TeacherAttendanceMarkingPage = () => {
             {loadingRoster ? (
               <LoadingSkeleton count={5} />
             ) : roster.length === 0 ? (
-              <div className="text-center py-12 text-textMuted text-xs">No active students found in this class section.</div>
+              <div className="text-center py-12 space-y-2">
+                <Users className="w-8 h-8 mx-auto text-textMuted/60" />
+                <div className="text-darkBrown font-bold text-xs">No active students enrolled</div>
+                <div className="text-textMuted text-[11px]">No active students are enrolled in this class section.</div>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">

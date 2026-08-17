@@ -32,22 +32,76 @@ export const getTeacherAttendanceOptions = async (req, res) => {
     const schoolId = getTenantSchoolId(req);
 
     const teacher = await resolveTeacherProfile(req, [
-      { path: 'assignedClassIds', select: 'name displayName' },
+      { path: 'assignedClassIds', select: 'name displayName numericOrder' },
       { path: 'assignedSectionIds', select: 'name classId' },
-      { path: 'classTeacherClassId', select: 'name' },
-      { path: 'classTeacherSectionId', select: 'name' },
+      { path: 'classTeacherClassId', select: 'name displayName numericOrder' },
+      { path: 'classTeacherSectionId', select: 'name classId' },
     ]);
 
     if (!teacher) {
       return res.status(404).json({ success: false, message: 'Teacher profile not found.' });
     }
 
-    const currentSession = await AcademicSession.findOne({ schoolId, isCurrent: true });
+    let currentSession = await AcademicSession.findOne({ schoolId, isCurrent: true });
+    if (!currentSession) {
+      currentSession = await AcademicSession.findOne({ schoolId }).sort({ startDate: -1 });
+    }
+
+    // Build canonical assignedClasses and assignedSections list for attendance
+    const assignedClasses = [];
+    const assignedSections = [];
+    const classIdSet = new Set();
+    const sectionIdSet = new Set();
+
+    // 1. If Class Teacher, include classTeacherClassId and classTeacherSectionId
+    if (teacher.isClassTeacher) {
+      if (teacher.classTeacherClassId) {
+        const c = teacher.classTeacherClassId;
+        const cIdStr = (c._id || c).toString();
+        if (!classIdSet.has(cIdStr)) {
+          classIdSet.add(cIdStr);
+          assignedClasses.push(c);
+        }
+      }
+      if (teacher.classTeacherSectionId) {
+        const sec = teacher.classTeacherSectionId;
+        const secIdStr = (sec._id || sec).toString();
+        if (!sectionIdSet.has(secIdStr)) {
+          sectionIdSet.add(secIdStr);
+          assignedSections.push(sec);
+        }
+      }
+    }
+
+    // 2. Also include any explicit assignedClassIds and assignedSectionIds
+    if (Array.isArray(teacher.assignedClassIds)) {
+      teacher.assignedClassIds.forEach((c) => {
+        if (!c) return;
+        const cIdStr = (c._id || c).toString();
+        if (!classIdSet.has(cIdStr)) {
+          classIdSet.add(cIdStr);
+          assignedClasses.push(c);
+        }
+      });
+    }
+
+    if (Array.isArray(teacher.assignedSectionIds)) {
+      teacher.assignedSectionIds.forEach((sec) => {
+        if (!sec) return;
+        const secIdStr = (sec._id || sec).toString();
+        if (!sectionIdSet.has(secIdStr)) {
+          sectionIdSet.add(secIdStr);
+          assignedSections.push(sec);
+        }
+      });
+    }
 
     return res.status(200).json({
       success: true,
       teacher,
-      currentSession,
+      currentSession: currentSession || null,
+      assignedClasses,
+      assignedSections,
     });
   } catch (error) {
     console.error('Get teacher attendance options error:', error);
@@ -87,13 +141,23 @@ export const getAttendanceSession = async (req, res) => {
     }).populate('markedBy', 'name role');
 
     // Fetch active students in class/section
-    const students = await Student.find({
+    let students = await Student.find({
       schoolId,
       currentAcademicSessionId: academicSessionId,
       currentClassId: classId,
       currentSectionId: sectionId,
       status: 'active',
     }).sort({ rollNumber: 1, fullName: 1 });
+
+    // Fallback: If session filter returned 0 students, query by class/section
+    if (students.length === 0) {
+      students = await Student.find({
+        schoolId,
+        currentClassId: classId,
+        currentSectionId: sectionId,
+        status: 'active',
+      }).sort({ rollNumber: 1, fullName: 1 });
+    }
 
     // Fetch existing attendance records
     const records = await StudentAttendance.find({

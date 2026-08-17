@@ -36,25 +36,31 @@ const FeeInvoicesPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [invRes, stuRes, strRes, sessRes] = await Promise.all([
+      const [invRes, stuRes, strRes, sessRes] = await Promise.allSettled([
         api.get('/principal/fees/invoices'),
         api.get('/principal/students'),
         api.get('/principal/fees/structures'),
-        api.get('/principal/setup/academic-sessions'),
+        api.get('/principal/academic-sessions'),
       ]);
 
-      if (invRes.data.success) setInvoices(invRes.data.invoices || []);
-      if (stuRes.data.success && stuRes.data.students?.length > 0) {
-        setStudents(stuRes.data.students);
-        setSelectedStudentId(stuRes.data.students[0]._id);
+      if (invRes.status === 'fulfilled' && invRes.value.data?.success) {
+        setInvoices(invRes.value.data.invoices || []);
       }
-      if (strRes.data.success && strRes.data.structures?.length > 0) {
-        setStructures(strRes.data.structures);
-        setSelectedStructureId(strRes.data.structures[0]._id);
+      if (stuRes.status === 'fulfilled' && stuRes.value.data?.success && stuRes.value.data.students?.length > 0) {
+        setStudents(stuRes.value.data.students);
+        setSelectedStudentId(stuRes.value.data.students[0]._id);
       }
-      if (sessRes.data.success && sessRes.data.academicSessions?.length > 0) {
-        setSessions(sessRes.data.academicSessions);
-        setSessionId(sessRes.data.academicSessions[0]._id);
+      if (strRes.status === 'fulfilled' && strRes.value.data?.success && strRes.value.data.structures?.length > 0) {
+        setStructures(strRes.value.data.structures);
+        setSelectedStructureId(strRes.value.data.structures[0]._id);
+      }
+      if (sessRes.status === 'fulfilled' && sessRes.value.data?.success) {
+        const sessList = sessRes.value.data.sessions || sessRes.value.data.academicSessions || [];
+        if (sessList.length > 0) {
+          setSessions(sessList);
+          const activeSess = sessList.find((s) => s.isCurrent) || sessList[0];
+          setSessionId(activeSess._id);
+        }
       }
     } catch (err) {
       console.error('Fetch invoices error:', err);

@@ -50,27 +50,28 @@ const CreateExamPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [sessRes, classRes, subRes] = await Promise.all([
-        api.get('/principal/setup/academic-sessions'),
+      const [sessRes, classRes, subRes] = await Promise.allSettled([
+        api.get('/principal/academic-sessions'),
         api.get('/principal/classes'),
         api.get('/principal/subjects'),
       ]);
 
-      if (sessRes.data.success) {
-        const curr = sessRes.data.academicSessions.find((s) => s.isCurrent) || sessRes.data.academicSessions[0];
+      if (sessRes.status === 'fulfilled' && sessRes.value.data?.success) {
+        const list = sessRes.value.data.sessions || sessRes.value.data.academicSessions || [];
+        const curr = list.find((s) => s.isCurrent) || list[0];
         setCurrentSession(curr);
       }
-      if (classRes.data.success) {
-        setClassesList(classRes.data.classes || []);
-        if (classRes.data.classes?.length > 0) {
-          setSelectedClassIds([classRes.data.classes[0]._id]);
-          setSchedClassId(classRes.data.classes[0]._id);
+      if (classRes.status === 'fulfilled' && classRes.value.data?.success) {
+        setClassesList(classRes.value.data.classes || []);
+        if (classRes.value.data.classes?.length > 0) {
+          setSelectedClassIds([classRes.value.data.classes[0]._id]);
+          setSchedClassId(classRes.value.data.classes[0]._id);
         }
       }
-      if (subRes.data.success) {
-        setSubjectsList(subRes.data.subjects || []);
-        if (subRes.data.subjects?.length > 0) {
-          setSchedSubjectId(subRes.data.subjects[0]._id);
+      if (subRes.status === 'fulfilled' && subRes.value.data?.success) {
+        setSubjectsList(subRes.value.data.subjects || []);
+        if (subRes.value.data.subjects?.length > 0) {
+          setSchedSubjectId(subRes.value.data.subjects[0]._id);
         }
       }
     } catch (err) {

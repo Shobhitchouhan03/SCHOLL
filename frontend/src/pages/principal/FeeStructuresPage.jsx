@@ -32,25 +32,31 @@ const FeeStructuresPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [strRes, catRes, classRes, sessRes] = await Promise.all([
+      const [strRes, catRes, classRes, sessRes] = await Promise.allSettled([
         api.get('/principal/fees/structures'),
         api.get('/principal/fees/categories'),
         api.get('/principal/classes'),
-        api.get('/principal/setup/academic-sessions'),
+        api.get('/principal/academic-sessions'),
       ]);
 
-      if (strRes.data.success) setStructures(strRes.data.structures || []);
-      if (catRes.data.success && catRes.data.categories?.length > 0) {
-        setCategories(catRes.data.categories);
-        setSelectedCategoryId(catRes.data.categories[0]._id);
+      if (strRes.status === 'fulfilled' && strRes.value.data?.success) {
+        setStructures(strRes.value.data.structures || []);
       }
-      if (classRes.data.success && classRes.data.classes?.length > 0) {
-        setClassesList(classRes.data.classes);
-        setSelectedClassId(classRes.data.classes[0]._id);
+      if (catRes.status === 'fulfilled' && catRes.value.data?.success && catRes.value.data.categories?.length > 0) {
+        setCategories(catRes.value.data.categories);
+        setSelectedCategoryId(catRes.value.data.categories[0]._id);
       }
-      if (sessRes.data.success && sessRes.data.academicSessions?.length > 0) {
-        setSessions(sessRes.data.academicSessions);
-        setSessionId(sessRes.data.academicSessions[0]._id);
+      if (classRes.status === 'fulfilled' && classRes.value.data?.success && classRes.value.data.classes?.length > 0) {
+        setClassesList(classRes.value.data.classes);
+        setSelectedClassId(classRes.value.data.classes[0]._id);
+      }
+      if (sessRes.status === 'fulfilled' && sessRes.value.data?.success) {
+        const sessList = sessRes.value.data.sessions || sessRes.value.data.academicSessions || [];
+        if (sessList.length > 0) {
+          setSessions(sessList);
+          const activeSess = sessList.find((s) => s.isCurrent) || sessList[0];
+          setSessionId(activeSess._id);
+        }
       }
     } catch (err) {
       console.error('Fetch structures data error:', err);

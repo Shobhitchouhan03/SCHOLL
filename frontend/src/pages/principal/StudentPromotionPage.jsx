@@ -37,26 +37,29 @@ const StudentPromotionPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [sessRes, classRes, secRes] = await Promise.all([
-        api.get('/principal/setup/academic-sessions'),
+      const [sessRes, classRes, secRes] = await Promise.allSettled([
+        api.get('/principal/academic-sessions'),
         api.get('/principal/classes'),
         api.get('/principal/sections'),
       ]);
 
-      if (sessRes.data.success) {
-        setSessions(sessRes.data.academicSessions || []);
-        if (sessRes.data.academicSessions?.length > 1) {
-          setFromSessionId(sessRes.data.academicSessions[0]._id);
-          setToSessionId(sessRes.data.academicSessions[1]._id);
+      if (sessRes.status === 'fulfilled' && sessRes.value.data?.success) {
+        const sessList = sessRes.value.data.sessions || sessRes.value.data.academicSessions || [];
+        setSessions(sessList);
+        if (sessList.length > 1) {
+          setFromSessionId(sessList[0]._id);
+          setToSessionId(sessList[1]._id);
+        } else if (sessList.length === 1) {
+          setFromSessionId(sessList[0]._id);
         }
       }
-      if (classRes.data.success && classRes.data.classes?.length > 0) {
-        setClassesList(classRes.data.classes);
-        setFromClassId(classRes.data.classes[0]._id);
+      if (classRes.status === 'fulfilled' && classRes.value.data?.success && classRes.value.data.classes?.length > 0) {
+        setClassesList(classRes.value.data.classes);
+        setFromClassId(classRes.value.data.classes[0]._id);
       }
-      if (secRes.data.success && secRes.data.sections?.length > 0) {
-        setSectionsList(secRes.data.sections);
-        setFromSectionId(secRes.data.sections[0]._id);
+      if (secRes.status === 'fulfilled' && secRes.value.data?.success && secRes.value.data.sections?.length > 0) {
+        setSectionsList(secRes.value.data.sections);
+        setFromSectionId(secRes.value.data.sections[0]._id);
       }
     } catch (err) {
       console.error('Fetch promotion options error:', err);

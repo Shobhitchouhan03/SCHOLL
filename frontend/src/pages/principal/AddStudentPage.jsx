@@ -117,22 +117,28 @@ const AddStudentPage = () => {
         }
       }
 
-      const [sessRes, clsRes, secRes, famRes] = await Promise.all([
-        api.get('/principal/setup/academic-sessions'),
+      const [sessRes, clsRes, secRes, famRes] = await Promise.allSettled([
+        api.get('/principal/academic-sessions'),
         api.get('/principal/classes'),
         api.get('/principal/sections'),
         api.get('/principal/families'),
       ]);
 
-      if (sessRes.data.success) {
-        const list = sessRes.data.sessions || [];
+      if (sessRes.status === 'fulfilled' && sessRes.value.data?.success) {
+        const list = sessRes.value.data.sessions || [];
         setSessions(list);
         const curr = list.find((s) => s.isCurrent) || list[0];
         if (curr) setFormData((prev) => ({ ...prev, currentAcademicSessionId: curr._id }));
       }
-      if (clsRes.data.success) setClasses(clsRes.data.classes || []);
-      if (secRes.data.success) setSections(secRes.data.sections || []);
-      if (famRes.data.success) setExistingFamilies(famRes.data.families || []);
+      if (clsRes.status === 'fulfilled' && clsRes.value.data?.success) {
+        setClasses(clsRes.value.data.classes || []);
+      }
+      if (secRes.status === 'fulfilled' && secRes.value.data?.success) {
+        setSections(secRes.value.data.sections || []);
+      }
+      if (famRes.status === 'fulfilled' && famRes.value.data?.success) {
+        setExistingFamilies(famRes.value.data.families || []);
+      }
     } catch (err) {
       console.error('Fetch references error:', err);
     }

@@ -18,24 +18,23 @@ import {
 
 const router = express.Router();
 
-// Apply authentication & Principal role enforcement for all setup routes
-router.use(authenticate, authorizeRoles('principal'));
+// Setup Wizard endpoints (Strictly Principal only)
+router.get('/setup/status', authenticate, authorizeRoles('principal'), getSetupStatus);
+router.patch('/setup/school-profile', authenticate, authorizeRoles('principal'), updateSchoolProfile);
+router.post('/setup/academic-session', authenticate, authorizeRoles('principal'), saveAcademicSession);
+router.post('/setup/classes/bulk', authenticate, authorizeRoles('principal'), saveClassesBulk);
+router.post('/setup/sections/bulk', authenticate, authorizeRoles('principal'), saveSectionsBulk);
+router.post('/setup/subjects/bulk', authenticate, authorizeRoles('principal'), saveSubjectsBulk);
+router.patch('/setup/configuration', authenticate, authorizeRoles('principal'), saveSchoolConfiguration);
+router.post('/setup/complete', authenticate, authorizeRoles('principal'), completeSetup);
 
-// Setup Wizard endpoints
-router.get('/setup/status', getSetupStatus);
-router.patch('/setup/school-profile', updateSchoolProfile);
-router.post('/setup/academic-session', saveAcademicSession);
-router.post('/setup/classes/bulk', saveClassesBulk);
-router.post('/setup/sections/bulk', saveSectionsBulk);
-router.post('/setup/subjects/bulk', saveSubjectsBulk);
-router.patch('/setup/configuration', saveSchoolConfiguration);
-router.post('/setup/complete', completeSetup);
-
-// Supporting CRUD endpoints
-router.get('/academic-sessions', getAcademicSessions);
-router.get('/classes', getClasses);
-router.get('/sections', getSections);
-router.get('/subjects', getSubjects);
-router.get('/configuration', getConfiguration);
+// Supporting Read-Only Reference endpoints (Accessible by school staff)
+const allowedStaffRoles = ['principal', 'teacher', 'accountant', 'admin', 'hr'];
+router.get('/academic-sessions', authenticate, authorizeRoles(...allowedStaffRoles), getAcademicSessions);
+router.get('/setup/academic-sessions', authenticate, authorizeRoles(...allowedStaffRoles), getAcademicSessions);
+router.get('/classes', authenticate, authorizeRoles(...allowedStaffRoles), getClasses);
+router.get('/sections', authenticate, authorizeRoles(...allowedStaffRoles), getSections);
+router.get('/subjects', authenticate, authorizeRoles(...allowedStaffRoles), getSubjects);
+router.get('/configuration', authenticate, authorizeRoles(...allowedStaffRoles), getConfiguration);
 
 export default router;

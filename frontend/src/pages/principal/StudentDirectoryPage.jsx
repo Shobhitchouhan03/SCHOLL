@@ -78,14 +78,20 @@ const StudentDirectoryPage = () => {
 
   const fetchReferences = async () => {
     try {
-      const [sessRes, clsRes, secRes] = await Promise.all([
-        api.get('/principal/setup/academic-sessions'),
+      const [sessRes, clsRes, secRes] = await Promise.allSettled([
+        api.get('/principal/academic-sessions'),
         api.get('/principal/classes'),
         api.get('/principal/sections'),
       ]);
-      if (sessRes.data.success) setSessions(sessRes.data.sessions || []);
-      if (clsRes.data.success) setClasses(clsRes.data.classes || []);
-      if (secRes.data.success) setSections(secRes.data.sections || []);
+      if (sessRes.status === 'fulfilled' && sessRes.value.data?.success) {
+        setSessions(sessRes.value.data.sessions || []);
+      }
+      if (clsRes.status === 'fulfilled' && clsRes.value.data?.success) {
+        setClasses(clsRes.value.data.classes || []);
+      }
+      if (secRes.status === 'fulfilled' && secRes.value.data?.success) {
+        setSections(secRes.value.data.sections || []);
+      }
     } catch (err) {
       console.error('Fetch references error:', err);
     }

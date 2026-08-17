@@ -32,20 +32,26 @@ const SalaryStructuresPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [strRes, tchRes, sessRes] = await Promise.all([
+      const [strRes, tchRes, sessRes] = await Promise.allSettled([
         api.get('/principal/payroll/structures'),
         api.get('/principal/teachers'),
-        api.get('/principal/setup/academic-sessions'),
+        api.get('/principal/academic-sessions'),
       ]);
 
-      if (strRes.data.success) setStructures(strRes.data.structures || []);
-      if (tchRes.data.success && tchRes.data.teachers?.length > 0) {
-        setTeachers(tchRes.data.teachers);
-        setSelectedTeacherId(tchRes.data.teachers[0]._id);
+      if (strRes.status === 'fulfilled' && strRes.value.data?.success) {
+        setStructures(strRes.value.data.structures || []);
       }
-      if (sessRes.data.success && sessRes.data.academicSessions?.length > 0) {
-        setSessions(sessRes.data.academicSessions);
-        setSessionId(sessRes.data.academicSessions[0]._id);
+      if (tchRes.status === 'fulfilled' && tchRes.value.data?.success && tchRes.value.data.teachers?.length > 0) {
+        setTeachers(tchRes.value.data.teachers);
+        setSelectedTeacherId(tchRes.value.data.teachers[0]._id);
+      }
+      if (sessRes.status === 'fulfilled' && sessRes.value.data?.success) {
+        const sessList = sessRes.value.data.sessions || sessRes.value.data.academicSessions || [];
+        if (sessList.length > 0) {
+          setSessions(sessList);
+          const activeSess = sessList.find((s) => s.isCurrent) || sessList[0];
+          setSessionId(activeSess._id);
+        }
       }
     } catch (err) {
       console.error('Fetch salary structures error:', err);
