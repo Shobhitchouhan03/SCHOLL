@@ -5,6 +5,7 @@ import Sidebar from '../components/common/Sidebar';
 import StatCard from '../components/common/StatCard';
 import CredentialModal from '../components/common/CredentialModal';
 import DeleteSchoolModal from '../components/common/DeleteSchoolModal';
+import BulkDeleteSchoolModal from '../components/common/BulkDeleteSchoolModal';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -30,6 +31,7 @@ import {
   Phone,
   Calendar,
   Trash2,
+  Check,
 } from 'lucide-react';
 
 const SUPPORTED_MODULES = [
@@ -56,7 +58,12 @@ const SuperAdminDashboard = () => {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, pages: 1, page: 1 });
 
-  // System Telemetry State
+  // Bulk Selection State
+  const [selectedSchoolIds, setSelectedSchoolIds] = useState([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+
+  // Network & System Telemetry State
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [dbStatus, setDbStatus] = useState(null);
   const [apiHealth, setApiHealth] = useState(null);
 
@@ -169,23 +176,33 @@ const SuperAdminDashboard = () => {
   });
 
   const fetchTelemetry = async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setDbStatus({ connectionState: 'interrupted', isOffline: true });
+      setApiHealth({ status: 'offline' });
+      return;
+    }
+
     try {
       const dbRes = await api.get('/health/database');
-      if (dbRes.data.success) setDbStatus(dbRes.data.database);
+      if (dbRes.data?.success) setDbStatus(dbRes.data.database);
+    } catch (err) {
+      setDbStatus({ connectionState: 'interrupted', isOffline: false });
+    }
 
+    try {
       const healthRes = await api.get('/health');
       setApiHealth(healthRes.data);
     } catch (err) {
-      console.error('Telemetry fetch error', err);
+      setApiHealth({ status: 'interrupted' });
     }
   };
 
   const fetchStats = async () => {
     try {
       const res = await api.get('/super-admin/stats');
-      if (res.data.success) setStats(res.data.stats);
+      if (res.data?.success) setStats(res.data.stats);
     } catch (err) {
-      console.error(err);
+      // Non-critical telemetry stat fetch
     }
   };
 
@@ -215,25 +232,94 @@ const SuperAdminDashboard = () => {
   };
 
   useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      fetchStats();
+      fetchTelemetry();
+      fetchSchools();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setDbStatus({ connectionState: 'interrupted', isOffline: true });
+      setApiHealth({ status: 'offline' });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     fetchStats();
     fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (typeof navigator === 'undefined' || navigator.onLine) {
+        fetchTelemetry();
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   useEffect(() => {
     fetchSchools();
+    setSelectedSchoolIds([]);
   }, [page, search, statusFilter]);
+
+  const allPageSelected = schools.length > 0 && schools.every((s) => selectedSchoolIds.includes(s._id));
+  const somePageSelected = schools.some((s) => selectedSchoolIds.includes(s._id)) && !allPageSelected;
+
+  const handleToggleSelectAll = () => {
+    if (allPageSelected) {
+      const pageIds = schools.map((s) => s._id);
+      setSelectedSchoolIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      const pageIds = schools.map((s) => s._id);
+      setSelectedSchoolIds((prev) => [...new Set([...prev, ...pageIds])]);
+    }
+  };
+
+  const handleToggleSelectSchool = (schoolId) => {
+    setSelectedSchoolIds((prev) =>
+      prev.includes(schoolId) ? prev.filter((id) => id !== schoolId) : [...prev, schoolId]
+    );
+  };
 
   const handleToggleStatus = async (schoolId) => {
     try {
       const res = await api.patch(`/super-admin/schools/${schoolId}/status`);
-      if (res.data.success) {
+      if (res.data?.success) {
+        showToast('success', res.data.message || 'School status updated.');
         fetchSchools();
         fetchStats();
       }
     } catch (err) {
-      alert(err.customMessage || 'Failed to toggle school status');
+      showToast('danger', err.customMessage || 'Failed to toggle school status');
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedSchoolIds.length === 0) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to archive and suspend ${selectedSchoolIds.length} selected school(s)? Tenant access will be blocked, but all data will be retained.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await api.post('/super-admin/schools/bulk-archive', { schoolIds: selectedSchoolIds });
+      if (res.data?.success) {
+        showToast('success', res.data.message || `${selectedSchoolIds.length} schools archived and suspended.`);
+        setSelectedSchoolIds([]);
+        fetchSchools();
+        fetchStats();
+      }
+    } catch (err) {
+      showToast('danger', err.customMessage || 'Failed to bulk archive schools.');
     }
   };
 
@@ -463,14 +549,22 @@ const SuperAdminDashboard = () => {
                   <Database className="w-3 h-3 text-morning" />
                   <span>MongoDB Atlas</span>
                 </div>
-                <div className="mt-1 font-bold flex items-center space-x-1">
+                <div className="mt-1 font-bold flex items-center space-x-1.5">
                   <span
                     className={`w-2 h-2 rounded-full ${
-                      dbStatus?.connectionState === 'connected' ? 'bg-success' : 'bg-warning animate-pulse'
+                      !isOnline || dbStatus?.isOffline
+                        ? 'bg-warning animate-pulse'
+                        : dbStatus?.connectionState === 'connected'
+                        ? 'bg-success'
+                        : 'bg-warning animate-pulse'
                     }`}
                   />
                   <span className="capitalize text-xs text-darkBrown">
-                    {dbStatus?.connectionState || 'Connected'}
+                    {!isOnline || dbStatus?.isOffline
+                      ? 'Offline'
+                      : dbStatus?.connectionState === 'connected'
+                      ? 'Connected'
+                      : 'Interrupted'}
                   </span>
                 </div>
               </div>
@@ -480,8 +574,23 @@ const SuperAdminDashboard = () => {
                   <Activity className="w-3 h-3 text-success" />
                   <span>API Health</span>
                 </div>
-                <div className="mt-1 font-bold text-xs text-darkBrown">
-                  {apiHealth?.status === 'OK' ? 'Operational' : 'Operational'}
+                <div className="mt-1 font-bold text-xs text-darkBrown flex items-center space-x-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      !isOnline || apiHealth?.status === 'offline'
+                        ? 'bg-warning'
+                        : apiHealth?.status === 'OK'
+                        ? 'bg-success'
+                        : 'bg-warning'
+                    }`}
+                  />
+                  <span>
+                    {!isOnline || apiHealth?.status === 'offline'
+                      ? 'Connection Interrupted'
+                      : apiHealth?.status === 'OK'
+                      ? 'Operational'
+                      : 'Unavailable'}
+                  </span>
                 </div>
               </div>
 
@@ -498,12 +607,22 @@ const SuperAdminDashboard = () => {
           </div>
 
           {toastMessage && (
-            <div className="p-4 rounded-2xl bg-success/15 border border-success/30 text-success text-xs font-bold flex items-center justify-between shadow-sm animate-fade-in">
+            <div
+              className={`p-4 rounded-2xl border text-xs font-bold flex items-center justify-between shadow-sm animate-fade-in ${
+                toastMessage.type === 'danger'
+                  ? 'bg-danger/15 border-danger/30 text-danger'
+                  : 'bg-success/15 border-success/30 text-success'
+              }`}
+            >
               <div className="flex items-center gap-2">
-                <CheckSquare className="w-4 h-4 text-success" />
+                {toastMessage.type === 'danger' ? (
+                  <AlertTriangle className="w-4 h-4 text-danger" />
+                ) : (
+                  <CheckSquare className="w-4 h-4 text-success" />
+                )}
                 <span>{toastMessage.text}</span>
               </div>
-              <button onClick={() => setToastMessage(null)} className="text-success hover:opacity-75">
+              <button onClick={() => setToastMessage(null)} className="hover:opacity-75">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -564,9 +683,16 @@ const SuperAdminDashboard = () => {
           </div>
 
           {/* School Directory Table */}
-          <div className="bg-white rounded-2xl border border-almond/40 shadow-card p-5 space-y-4">
+          <div className="bg-white rounded-2xl border border-almond/40 shadow-card p-5 space-y-4 relative">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-base font-bold text-darkBrown">School Directory</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-darkBrown">School Directory</h3>
+                {selectedSchoolIds.length > 0 && (
+                  <span className="bg-chestnut/10 text-chestnut text-xs font-bold px-2.5 py-0.5 rounded-full">
+                    {selectedSchoolIds.length} selected
+                  </span>
+                )}
+              </div>
 
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
@@ -608,7 +734,19 @@ const SuperAdminDashboard = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-almond/30 text-[11px] font-bold text-textMuted uppercase tracking-wider bg-surface/50">
-                      <th className="py-3 px-4 rounded-l-xl">School Name</th>
+                      <th className="py-3 px-3 w-10 text-center rounded-l-xl">
+                        <input
+                          type="checkbox"
+                          checked={allPageSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = somePageSelected;
+                          }}
+                          onChange={handleToggleSelectAll}
+                          className="w-4 h-4 rounded text-chestnut focus:ring-chestnut cursor-pointer"
+                          title={allPageSelected ? 'Deselect all visible schools' : 'Select all visible schools'}
+                        />
+                      </th>
+                      <th className="py-3 px-4">School Name</th>
                       <th className="py-3 px-4">Code</th>
                       <th className="py-3 px-4">Principal</th>
                       <th className="py-3 px-4">Subscription</th>
@@ -618,7 +756,20 @@ const SuperAdminDashboard = () => {
                   </thead>
                   <tbody className="divide-y divide-almond/20 text-xs text-textMain">
                     {schools.map((school) => (
-                      <tr key={school._id} className="hover:bg-surface/40 transition-colors">
+                      <tr
+                        key={school._id}
+                        className={`transition-colors ${
+                          selectedSchoolIds.includes(school._id) ? 'bg-chestnut/5' : 'hover:bg-surface/40'
+                        }`}
+                      >
+                        <td className="py-3 px-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedSchoolIds.includes(school._id)}
+                            onChange={() => handleToggleSelectSchool(school._id)}
+                            className="w-4 h-4 rounded text-chestnut focus:ring-chestnut cursor-pointer"
+                          />
+                        </td>
                         <td className="py-3 px-4">
                           <div className="font-bold text-darkBrown">{school.name}</div>
                           <div className="text-[10px] text-textMuted">{school.email || school.phone || 'No contact email'}</div>
@@ -689,7 +840,7 @@ const SuperAdminDashboard = () => {
 
                             <button
                               onClick={() => setDeletingSchool(school)}
-                              title="Delete / Archive School"
+                              title="Permanently Delete School"
                               className="px-2 py-1 rounded-lg border border-danger/30 text-danger hover:bg-danger/10 font-medium text-[11px] flex items-center gap-1 transition-colors"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -701,6 +852,43 @@ const SuperAdminDashboard = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Sticky Floating Bulk Action Bar */}
+            {selectedSchoolIds.length > 0 && (
+              <div className="sticky bottom-4 z-40 bg-darkBrown text-white px-5 py-3 rounded-2xl shadow-2xl border border-almond/30 flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+                <div className="flex items-center gap-2 font-bold text-xs">
+                  <span className="bg-chestnut px-2.5 py-0.5 rounded-full text-white font-mono">
+                    {selectedSchoolIds.length}
+                  </span>
+                  <span>school{selectedSchoolIds.length > 1 ? 's' : ''} selected</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleBulkArchive}
+                    className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Power className="w-3.5 h-3.5" />
+                    <span>Archive Selected</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsBulkDeleteModalOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-danger hover:bg-danger/90 text-white text-xs font-bold flex items-center gap-1.5 shadow transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Selected</span>
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedSchoolIds([])}
+                    className="px-2.5 py-1.5 rounded-xl text-white/70 hover:text-white text-xs transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1280,13 +1468,31 @@ const SuperAdminDashboard = () => {
         onClose={() => setCreatedCredentials(null)}
       />
 
-      {/* Delete School Modal */}
+      {/* Delete Single School Modal */}
       <DeleteSchoolModal
         isOpen={Boolean(deletingSchool)}
         school={deletingSchool}
         onClose={() => setDeletingSchool(null)}
         onSuccess={(msg) => {
           showToast('success', msg);
+          if (deletingSchool) {
+            setSelectedSchoolIds((prev) => prev.filter((id) => id !== deletingSchool._id));
+            setSchools((prev) => prev.filter((s) => s._id !== deletingSchool._id));
+          }
+          fetchSchools();
+          fetchStats();
+        }}
+      />
+
+      {/* Bulk Delete Schools Modal */}
+      <BulkDeleteSchoolModal
+        isOpen={isBulkDeleteModalOpen}
+        selectedSchools={schools.filter((s) => selectedSchoolIds.includes(s._id))}
+        onClose={() => setIsBulkDeleteModalOpen(false)}
+        onSuccess={(msg) => {
+          showToast('success', msg);
+          setSchools((prev) => prev.filter((s) => !selectedSchoolIds.includes(s._id)));
+          setSelectedSchoolIds([]);
           fetchSchools();
           fetchStats();
         }}

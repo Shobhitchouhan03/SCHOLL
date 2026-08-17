@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Trash2, X, Users, GraduationCap, FileText, CheckSquare, Layers } from 'lucide-react';
+import { AlertTriangle, Trash2, X, Users, GraduationCap, FileText, Layers } from 'lucide-react';
 import api from '../../services/api';
 
-const DeleteSchoolModal = ({ isOpen, school, onClose, onSuccess }) => {
-  if (!isOpen || !school) return null;
+const BulkDeleteSchoolModal = ({ isOpen, selectedSchools = [], onClose, onSuccess }) => {
+  if (!isOpen || selectedSchools.length === 0) return null;
 
   const [dependentCounts, setDependentCounts] = useState(null);
   const [loadingCounts, setLoadingCounts] = useState(true);
@@ -11,66 +11,69 @@ const DeleteSchoolModal = ({ isOpen, school, onClose, onSuccess }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const requiredConfirmationText = `DELETE ${selectedSchools.length} SCHOOLS`;
+
   useEffect(() => {
     let isMounted = true;
-    const fetchCounts = async () => {
+    const fetchBulkCounts = async () => {
       try {
         setLoadingCounts(true);
         setError('');
-        const res = await api.get(`/super-admin/schools/${school._id}/dependent-counts`);
+        const schoolIds = selectedSchools.map((s) => s._id);
+        const res = await api.post('/super-admin/schools/bulk-dependent-counts', { schoolIds });
         if (isMounted && res.data.success) {
           setDependentCounts(res.data.dependentCounts);
         }
       } catch (err) {
         if (isMounted) {
-          console.error('Fetch dependent counts error:', err);
-          setError(err.customMessage || 'Failed to load dependent record counts.');
+          console.error('Fetch bulk dependent counts error:', err);
+          setError(err.customMessage || 'Failed to load aggregated dependent counts.');
         }
       } finally {
         if (isMounted) setLoadingCounts(false);
       }
     };
 
-    fetchCounts();
+    fetchBulkCounts();
     return () => {
       isMounted = false;
     };
-  }, [school]);
+  }, [selectedSchools]);
 
-  const handleDelete = async (e) => {
+  const handleBulkDelete = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (confirmInput.trim().toUpperCase() !== school.schoolCode.toUpperCase()) {
-      setError(`Confirmation failed. You must type '${school.schoolCode}' exactly.`);
+    if (confirmInput.trim().toUpperCase() !== requiredConfirmationText.toUpperCase()) {
+      setError(`Confirmation failed. You must type '${requiredConfirmationText}' exactly.`);
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const res = await api.delete(`/super-admin/schools/${school._id}`, {
-        data: {
-          confirmSchoolCode: confirmInput.trim(),
-        },
-      });
+      const schoolIds = selectedSchools.map((s) => s._id);
+      const res = await api.post('/super-admin/schools/bulk-delete', { schoolIds });
 
       if (res.data.success) {
-        onSuccess(res.data.message || `School '${school.name}' permanently deleted.`);
+        onSuccess(
+          res.data.message ||
+            `${selectedSchools.length} schools and their associated tenant data were permanently deleted.`
+        );
         onClose();
       }
     } catch (err) {
-      setError(err.customMessage || err.response?.data?.message || 'Failed to permanently delete school.');
+      setError(err.customMessage || err.response?.data?.message || 'Failed to bulk delete schools.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const isMatch = confirmInput.trim().toUpperCase() === school.schoolCode.toUpperCase();
+  const isMatch = confirmInput.trim().toUpperCase() === requiredConfirmationText.toUpperCase();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-darkBrown/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-danger/30 relative my-8">
+      <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-danger/30 relative my-8">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-1.5 rounded-lg text-textMuted hover:text-textMain hover:bg-surface transition-colors"
@@ -83,9 +86,9 @@ const DeleteSchoolModal = ({ isOpen, school, onClose, onSuccess }) => {
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-black text-danger uppercase tracking-wider block">Irreversible Action</span>
-            <h3 className="text-lg font-black text-darkBrown tracking-tight">Permanently Delete School</h3>
-            <p className="text-xs text-textMuted">{school.name} (<span className="font-mono font-bold text-chestnut">{school.schoolCode}</span>)</p>
+            <span className="text-[10px] font-black text-danger uppercase tracking-wider block">Bulk Irreversible Action</span>
+            <h3 className="text-lg font-black text-darkBrown tracking-tight">Bulk Permanent Delete ({selectedSchools.length} Schools)</h3>
+            <p className="text-xs text-textMuted">Permanently purging {selectedSchools.length} selected school tenants and all data</p>
           </div>
         </div>
 
@@ -93,23 +96,38 @@ const DeleteSchoolModal = ({ isOpen, school, onClose, onSuccess }) => {
         <div className="p-3 bg-danger/10 border border-danger/25 rounded-2xl text-danger text-xs space-y-1 mb-4">
           <div className="font-bold flex items-center gap-1.5">
             <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>Permanent Database Purge</span>
+            <span>Mass Database Purge</span>
           </div>
           <p className="text-[11px] leading-relaxed text-danger/90">
-            This permanently deletes the school tenant record and <strong>ALL associated data</strong> across 79 database collections (Users, Students, Teachers, Families, Academic Enrollments, Attendance, Marks, Exams, Invoices, Documents, etc.). This action <strong>cannot be undone</strong>.
+            This permanently deletes <strong>{selectedSchools.length} schools</strong> and all associated tenant records across 79 database collections. This action <strong>cannot be undone</strong>.
           </p>
         </div>
 
-        {/* Dependent Records Breakdown */}
+        {/* Selected Schools List Preview */}
+        <div className="mb-4">
+          <div className="text-[11px] font-bold text-darkBrown uppercase tracking-wider mb-1.5">
+            Selected Schools ({selectedSchools.length}):
+          </div>
+          <div className="max-h-28 overflow-y-auto bg-surface p-2.5 rounded-xl border border-almond/40 space-y-1 text-xs">
+            {selectedSchools.map((s) => (
+              <div key={s._id} className="flex justify-between items-center bg-white p-1.5 px-2.5 rounded-lg border border-almond/30">
+                <span className="font-semibold text-darkBrown truncate max-w-[280px]">{s.name}</span>
+                <span className="font-mono font-bold text-chestnut text-[11px] bg-almond/30 px-1.5 py-0.5 rounded">{s.schoolCode}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Aggregated Dependent Records Breakdown */}
         {loadingCounts ? (
           <div className="py-6 text-center text-xs text-textMuted flex items-center justify-center gap-2">
             <div className="w-4 h-4 border-2 border-chestnut border-t-transparent rounded-full animate-spin" />
-            <span>Calculating dependent records...</span>
+            <span>Calculating aggregated dependent records across {selectedSchools.length} schools...</span>
           </div>
         ) : dependentCounts ? (
           <div className="bg-surface p-3.5 rounded-2xl border border-almond/50 mb-4 space-y-2 text-xs">
             <div className="font-bold text-darkBrown flex items-center justify-between text-[11px] uppercase tracking-wider">
-              <span>Linked Records to be Purged</span>
+              <span>Total Linked Records to be Purged</span>
               <Layers className="w-3.5 h-3.5 text-textMuted" />
             </div>
 
@@ -119,7 +137,7 @@ const DeleteSchoolModal = ({ isOpen, school, onClose, onSuccess }) => {
                 <span className="font-bold text-darkBrown">{dependentCounts.users}</span>
               </div>
               <div className="bg-white p-2 rounded-xl border border-almond/40 flex justify-between items-center">
-                <span className="text-textMuted flex items-center gap-1">Teachers:</span>
+                <span className="text-textMuted">Teachers:</span>
                 <span className="font-bold text-darkBrown">{dependentCounts.teachers}</span>
               </div>
               <div className="bg-white p-2 rounded-xl border border-almond/40 flex justify-between items-center">
@@ -161,16 +179,16 @@ const DeleteSchoolModal = ({ isOpen, school, onClose, onSuccess }) => {
           </div>
         )}
 
-        <form onSubmit={handleDelete} className="space-y-4">
+        <form onSubmit={handleBulkDelete} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-textMain mb-1.5">
-              To confirm permanent deletion, type <span className="font-mono font-bold text-danger select-all bg-danger/10 px-1.5 py-0.5 rounded">{school.schoolCode}</span> below:
+              To confirm bulk permanent deletion, type <span className="font-mono font-bold text-danger select-all bg-danger/10 px-1.5 py-0.5 rounded">{requiredConfirmationText}</span> below:
             </label>
             <input
               type="text"
               required
               autoFocus
-              placeholder={`Type ${school.schoolCode} to confirm`}
+              placeholder={`Type ${requiredConfirmationText} to confirm`}
               value={confirmInput}
               onChange={(e) => setConfirmInput(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-surface border border-danger/40 rounded-xl text-sm font-mono focus:outline-none focus:border-danger focus:ring-1 focus:ring-danger transition-all uppercase"
@@ -196,7 +214,7 @@ const DeleteSchoolModal = ({ isOpen, school, onClose, onSuccess }) => {
               ) : (
                 <>
                   <Trash2 className="w-4 h-4" />
-                  <span>Delete Permanently</span>
+                  <span>Permanently Delete {selectedSchools.length} Schools</span>
                 </>
               )}
             </button>
@@ -207,4 +225,4 @@ const DeleteSchoolModal = ({ isOpen, school, onClose, onSuccess }) => {
   );
 };
 
-export default DeleteSchoolModal;
+export default BulkDeleteSchoolModal;

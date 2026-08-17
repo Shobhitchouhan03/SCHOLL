@@ -99,6 +99,144 @@ This document provides complete, verified details for API endpoints in the Multi
 }
 ```
 
+### 2.2 Permanently Delete School
+- **Endpoint**: `DELETE /api/super-admin/schools/:id`
+- **Access**: Authenticated (Super Admin)
+- **Description**: Permanently purges a school tenant and cascades deletion across all 79 tenant database collections. Requires exact schoolCode confirmation.
+
+#### Request Example
+```json
+{
+  "confirmSchoolCode": "SAMPLE001"
+}
+```
+
+#### Response Example (200 OK)
+```json
+{
+  "success": true,
+  "message": "School 'Sample School' (SAMPLE001) and all associated tenant data were permanently deleted."
+}
+```
+
+### 2.3 Bulk Permanently Delete Schools
+- **Endpoint**: `POST /api/super-admin/schools/bulk-delete`
+- **Access**: Authenticated (Super Admin)
+- **Description**: Permanently deletes multiple schools and cascades deletion across all tenant collections.
+
+#### Request Example
+```json
+{
+  "schoolIds": ["60d5ec49f1b2c81148c99999", "60d5ec49f1b2c81148c99998"]
+}
+```
+
+#### Response Example (200 OK)
+```json
+{
+  "success": true,
+  "message": "2 school(s) and their associated tenant data were permanently deleted.",
+  "requested": 2,
+  "deleted": 2,
+  "failed": 0
+}
+```
+
+### 2.4 Bulk Archive Schools
+- **Endpoint**: `POST /api/super-admin/schools/bulk-archive`
+- **Access**: Authenticated (Super Admin)
+- **Description**: Suspends multiple schools and deactivates users while preserving tenant data.
+
+#### Request Example
+```json
+{
+  "schoolIds": ["60d5ec49f1b2c81148c99999", "60d5ec49f1b2c81148c99998"]
+}
+```
+
+#### Response Example (200 OK)
+```json
+{
+  "success": true,
+  "message": "2 school(s) have been archived and suspended.",
+  "archivedCount": 2
+}
+```
+
+### 2.5 Bulk Dependent Counts Preview
+- **Endpoint**: `POST /api/super-admin/schools/bulk-dependent-counts`
+- **Access**: Authenticated (Super Admin)
+- **Description**: Fetches aggregated dependent record counts across selected schools for deletion confirmation.
+
+#### Request Example
+```json
+{
+  "schoolIds": ["60d5ec49f1b2c81148c99999"]
+}
+```
+
+#### Response Example (200 OK)
+```json
+{
+  "success": true,
+  "totalSchools": 1,
+  "dependentCounts": {
+    "users": 10,
+    "teachers": 5,
+    "students": 50,
+    "families": 40,
+    "documents": 15,
+    "attendance": 200,
+    "results": 50,
+    "fees": 60,
+    "hrStaff": 10
+  }
+}
+```
+
+### 2.6 Archive School
+- **Endpoint**: `POST /api/super-admin/schools/:id/archive`
+- **Access**: Authenticated (Super Admin)
+- **Description**: Suspends an individual school tenant and deactivates users while retaining data.
+
+#### Request Example
+```json
+{}
+```
+
+#### Response Example (200 OK)
+```json
+{
+  "success": true,
+  "message": "School 'Sample School' (SAMPLE001) has been archived and access suspended safely."
+}
+```
+
+### 2.7 School Dependent Counts Preview
+- **Endpoint**: `GET /api/super-admin/schools/:id/dependent-counts`
+- **Access**: Authenticated (Super Admin)
+- **Description**: Fetches dependent record counts for an individual school before deletion.
+
+#### Response Example (200 OK)
+```json
+{
+  "success": true,
+  "schoolCode": "SAMPLE001",
+  "schoolName": "Sample School",
+  "dependentCounts": {
+    "users": 10,
+    "teachers": 5,
+    "students": 50,
+    "families": 40,
+    "documents": 15,
+    "attendance": 200,
+    "results": 50,
+    "fees": 60,
+    "hrStaff": 10
+  }
+}
+```
+
 ---
 
 ## 3. Principal Setup and Academic Structure

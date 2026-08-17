@@ -4,7 +4,11 @@ import {
   getAllSchools,
   getSchoolById,
   getSchoolDependentCounts,
+  getBulkDependentCounts,
   deleteSchool,
+  bulkDeleteSchools,
+  archiveSchool,
+  bulkArchiveSchools,
   updateSchoolModules,
   updateSchoolSubscription,
   toggleSchoolStatus,
@@ -26,11 +30,17 @@ router.route('/schools')
   .post(createSchool)
   .get(getAllSchools);
 
+// Bulk actions
+router.post('/schools/bulk-delete', bulkDeleteSchools);
+router.post('/schools/bulk-archive', bulkArchiveSchools);
+router.post('/schools/bulk-dependent-counts', getBulkDependentCounts);
+
 router.route('/schools/:id')
   .get(getSchoolById)
   .delete(deleteSchool);
 
 router.get('/schools/:id/dependent-counts', getSchoolDependentCounts);
+router.post('/schools/:id/archive', archiveSchool);
 router.patch('/schools/:id/modules', updateSchoolModules);
 router.patch('/schools/:id/subscription', updateSchoolSubscription);
 router.patch('/schools/:id/status', toggleSchoolStatus);
@@ -45,3 +55,4 @@ router.patch('/schools/:id/subdomain', updateSubdomain);
 router.get('/stats', getPlatformStats);
 
 export default router;
+

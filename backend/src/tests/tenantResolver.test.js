@@ -72,6 +72,7 @@ export const runTenantResolverTests = async () => {
       console.log('✅ Test 5 Passed: Priority 2 (Custom FQDN domain) resolved correctly.');
 
       // Test Priority 3: Subdomain match
+      process.env.ROOT_DOMAIN = 'yourdomain.com';
       const res3 = await resolveTenantFromRequest({
         headers: { host: 'resolver-sub.yourdomain.com' },
       });

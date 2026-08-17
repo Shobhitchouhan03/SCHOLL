@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { School, SUPPORTED_MODULES } from '../models/School.js';
 import { User } from '../models/User.js';
 import { Teacher } from '../models/Teacher.js';
@@ -5,6 +6,7 @@ import { Student } from '../models/Student.js';
 import { ParentProfile } from '../models/ParentProfile.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { isValidDomainFormat, normalizeHostname } from '../services/tenantResolver.js';
+import { calculateDependentCounts, cascadeDeleteSchoolTenantData } from '../services/tenantCleanupService.js';
 
 // Helper to generate unique URL-safe schoolSlug from school name
 const generateSlug = async (name) => {
@@ -296,45 +298,78 @@ export const getSchoolById = async (req, res) => {
   }
 };
 
-// @desc    Get Dependent Record Counts for School Deletion Confirmation
+// @desc    Get Dependent Record Counts for Single School Deletion Confirmation
 // @route   GET /api/super-admin/schools/:id/dependent-counts
 // @access  Private (Super Admin)
 export const getSchoolDependentCounts = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid school ID.' });
+    }
+
     const school = await School.findById(id);
     if (!school) {
       return res.status(404).json({ success: false, message: 'School not found.' });
     }
 
-    const usersCount = await User.countDocuments({ schoolId: id });
-    const teachersCount = await Teacher.countDocuments({ schoolId: id });
-    const studentsCount = await Student.countDocuments({ schoolId: id });
-    const familiesCount = await ParentProfile.countDocuments({ schoolId: id });
+    const counts = await calculateDependentCounts([id]);
 
     return res.status(200).json({
       success: true,
       schoolCode: school.schoolCode,
       schoolName: school.name,
-      dependentCounts: {
-        users: usersCount,
-        teachers: teachersCount,
-        students: studentsCount,
-        families: familiesCount,
-      },
+      dependentCounts: counts,
     });
   } catch (error) {
+    console.error('Get school dependent counts error:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch dependent counts.' });
   }
 };
 
-// @desc    Delete or Archive School Safely
+// @desc    Get Aggregated Dependent Record Counts for Bulk Deletion Confirmation
+// @route   POST /api/super-admin/schools/bulk-dependent-counts
+// @access  Private (Super Admin)
+export const getBulkDependentCounts = async (req, res) => {
+  try {
+    const { schoolIds } = req.body;
+    if (!Array.isArray(schoolIds) || schoolIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'schoolIds array is required and cannot be empty.' });
+    }
+
+    const validIds = schoolIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid school IDs provided.' });
+    }
+
+    const uniqueIds = [...new Set(validIds)];
+    const targetSchools = await School.find({ _id: { $in: uniqueIds } }).select('name schoolCode');
+
+    const counts = await calculateDependentCounts(uniqueIds);
+
+    return res.status(200).json({
+      success: true,
+      totalSchools: targetSchools.length,
+      schools: targetSchools.map((s) => ({ id: s._id, name: s.name, schoolCode: s.schoolCode })),
+      dependentCounts: counts,
+    });
+  } catch (error) {
+    console.error('Get bulk dependent counts error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch bulk dependent counts.' });
+  }
+};
+
+// @desc    Permanently Delete a Single School and all tenant records
 // @route   DELETE /api/super-admin/schools/:id
 // @access  Private (Super Admin)
 export const deleteSchool = async (req, res) => {
   try {
     const { id } = req.params;
-    const { confirmSchoolCode, isHardDelete } = req.body;
+    const { confirmSchoolCode } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid school ID.' });
+    }
 
     const school = await School.findById(id);
     if (!school) {
@@ -344,55 +379,142 @@ export const deleteSchool = async (req, res) => {
     if (!confirmSchoolCode || confirmSchoolCode.toUpperCase().trim() !== school.schoolCode.toUpperCase().trim()) {
       return res.status(400).json({
         success: false,
-        message: `Deletion failed. You must type the exact school code '${school.schoolCode}' to confirm.`,
+        message: `Deletion failed. You must type the exact school code '${school.schoolCode}' to confirm permanent deletion.`,
       });
     }
 
-    const isDev = process.env.NODE_ENV !== 'production';
+    const result = await cascadeDeleteSchoolTenantData([id], req.user);
 
-    if (isDev && isHardDelete) {
-      // Development mode hard delete of test school
-      await User.deleteMany({ schoolId: id });
-      await Teacher.deleteMany({ schoolId: id });
-      await Student.deleteMany({ schoolId: id });
-      await ParentProfile.deleteMany({ schoolId: id });
-      await School.findByIdAndDelete(id);
-
-      await AuditLog.create({
-        actor: req.user._id,
-        action: 'HARD_DELETE_SCHOOL',
-        description: `Super Admin permanently deleted test school ${school.name} (${school.schoolCode})`,
-        entity: 'School',
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: `School '${school.name}' (${school.schoolCode}) and all linked records deleted permanently.`,
-      });
-    } else {
-      // Production soft delete / archive
-      school.isActive = false;
-      school.subscription.status = 'suspended';
-      await school.save();
-
-      await User.updateMany({ schoolId: id }, { $set: { isActive: false } });
-
-      await AuditLog.create({
-        actor: req.user._id,
-        action: 'ARCHIVE_SCHOOL',
-        schoolId: school._id,
-        description: `Super Admin archived school ${school.name} (${school.schoolCode})`,
-        entity: 'School',
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: `School '${school.name}' (${school.schoolCode}) has been archived and deactivated safely.`,
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      message: `School '${school.name}' (${school.schoolCode}) and all associated tenant data were permanently deleted.`,
+      result,
+    });
   } catch (error) {
     console.error('Delete school error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to delete/archive school.' });
+    return res.status(500).json({ success: false, message: 'Failed to permanently delete school.' });
+  }
+};
+
+// @desc    Permanently Delete Multiple Schools in Bulk and all tenant records
+// @route   POST /api/super-admin/schools/bulk-delete
+// @access  Private (Super Admin)
+export const bulkDeleteSchools = async (req, res) => {
+  try {
+    const { schoolIds } = req.body;
+
+    if (!Array.isArray(schoolIds) || schoolIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'schoolIds array is required and cannot be empty.' });
+    }
+
+    const validIds = schoolIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid school IDs provided.' });
+    }
+
+    const uniqueIds = [...new Set(validIds)];
+    const result = await cascadeDeleteSchoolTenantData(uniqueIds, req.user);
+
+    return res.status(200).json({
+      success: true,
+      message: `${result.deleted} school(s) and their associated tenant data were permanently deleted.`,
+      ...result,
+    });
+  } catch (error) {
+    console.error('Bulk delete schools error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to bulk delete schools.' });
+  }
+};
+
+// @desc    Archive / Suspend a Single School (Preserves Data)
+// @route   POST /api/super-admin/schools/:id/archive
+// @access  Private (Super Admin)
+export const archiveSchool = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid school ID.' });
+    }
+
+    const school = await School.findById(id);
+    if (!school) {
+      return res.status(404).json({ success: false, message: 'School not found.' });
+    }
+
+    school.isActive = false;
+    if (!school.subscription) {
+      school.subscription = {};
+    }
+    school.subscription.status = 'suspended';
+    await school.save();
+
+    await User.updateMany(
+      { schoolId: id, role: { $ne: 'superAdmin' } },
+      { $set: { isActive: false } }
+    );
+
+    await AuditLog.create({
+      actor: req.user._id,
+      action: 'ARCHIVE_SCHOOL',
+      schoolId: school._id,
+      description: `Super Admin archived and suspended school ${school.name} (${school.schoolCode})`,
+      entity: 'School',
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `School '${school.name}' (${school.schoolCode}) has been archived and access suspended safely.`,
+      school,
+    });
+  } catch (error) {
+    console.error('Archive school error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to archive school.' });
+  }
+};
+
+// @desc    Archive / Suspend Multiple Schools in Bulk (Preserves Data)
+// @route   POST /api/super-admin/schools/bulk-archive
+// @access  Private (Super Admin)
+export const bulkArchiveSchools = async (req, res) => {
+  try {
+    const { schoolIds } = req.body;
+
+    if (!Array.isArray(schoolIds) || schoolIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'schoolIds array is required and cannot be empty.' });
+    }
+
+    const validIds = schoolIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    if (validIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid school IDs provided.' });
+    }
+
+    const uniqueIds = [...new Set(validIds)];
+
+    await School.updateMany(
+      { _id: { $in: uniqueIds } },
+      { $set: { isActive: false, 'subscription.status': 'suspended' } }
+    );
+
+    await User.updateMany(
+      { schoolId: { $in: uniqueIds }, role: { $ne: 'superAdmin' } },
+      { $set: { isActive: false } }
+    );
+
+    await AuditLog.create({
+      actor: req.user._id,
+      action: 'BULK_ARCHIVE_SCHOOLS',
+      description: `Super Admin bulk archived ${uniqueIds.length} school(s).`,
+      entity: 'School',
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `${uniqueIds.length} school(s) have been archived and suspended.`,
+      archivedCount: uniqueIds.length,
+    });
+  } catch (error) {
+    console.error('Bulk archive schools error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to bulk archive schools.' });
   }
 };
 
@@ -442,6 +564,10 @@ export const updateSchoolSubscription = async (req, res) => {
       return res.status(404).json({ success: false, message: 'School not found.' });
     }
 
+    if (!school.subscription) {
+      school.subscription = {};
+    }
+
     if (status && ['active', 'suspended', 'expired'].includes(status)) {
       school.subscription.status = status;
     }
@@ -480,6 +606,10 @@ export const toggleSchoolStatus = async (req, res) => {
     }
 
     school.isActive = !school.isActive;
+    if (!school.subscription) {
+      school.subscription = {};
+    }
+
     if (!school.isActive) {
       school.subscription.status = 'suspended';
     } else {
