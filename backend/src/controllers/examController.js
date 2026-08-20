@@ -10,6 +10,9 @@ import { Teacher } from '../models/Teacher.js';
 import { AcademicSession } from '../models/AcademicSession.js';
 import { StudentAcademicEnrollment } from '../models/StudentAcademicEnrollment.js';
 import { ParentProfile } from '../models/ParentProfile.js';
+import { Subject } from '../models/Subject.js';
+import { SchoolClass } from '../models/SchoolClass.js';
+import { Section } from '../models/Section.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { ResultCalculationService } from '../services/ResultCalculationService.js';
 import { resolveTeacherProfile, resolveTeacherTeachingContext } from '../utils/teacherResolver.js';
@@ -17,68 +20,268 @@ import { resolveTeacherProfile, resolveTeacherTeachingContext } from '../utils/t
 const getTenantSchoolId = (req) => req.tenantSchoolId || req.user?.schoolId;
 
 // ==========================================
-// PRINCIPAL EXAM MANAGEMENT CONTROLLERS
+// TEACHER ASSESSMENT & EXAM OPTIONS
 // ==========================================
 
-// @desc    Create Exam
-// @route   POST /api/principal/exams
-// @access  Private (Principal)
+// @desc    Get Teacher Exam & Assessment Options (Active Session, Assigned Classes, Sections, Subjects)
+// @route   GET /api/teacher/exams/options
+// @access  Private (Teacher)
+export const getTeacherExamOptions = async (req, res) => {
+  try {
+    const schoolId = getTenantSchoolId(req);
+    const context = await resolveTeacherTeachingContext(req);
+
+    if (!context) {
+      return res.status(404).json({ success: false, message: 'Teacher profile not found.' });
+    }
+
+    const { teacher, ownedClass, subjectAssignments } = context;
+
+    // Resolve active academic session
+    let currentSession = await AcademicSession.findOne({ schoolId, isCurrent: true, status: 'active' });
+    if (!currentSession) {
+      currentSession = await AcademicSession.findOne({ schoolId }).sort({ startDate: -1 });
+    }
+
+    // Collect assigned classes and sections
+    const assignedClassesMap = new Map();
+    const assignedSectionsList = [];
+
+    // 1. If Class Teacher
+    if (ownedClass && ownedClass.classId) {
+      const classDoc = await SchoolClass.findById(ownedClass.classId).select('name displayName numericOrder');
+      if (classDoc) {
+        assignedClassesMap.set(String(classDoc._id), {
+          _id: classDoc._id,
+          name: classDoc.name || classDoc.displayName,
+          displayName: classDoc.displayName || classDoc.name,
+          isOwned: true,
+        });
+      }
+      if (ownedClass.sectionId) {
+        const sectionDoc = await Section.findById(ownedClass.sectionId).select('name classId');
+        if (sectionDoc) {
+          assignedSectionsList.push({
+            _id: sectionDoc._id,
+            name: sectionDoc.name,
+            classId: sectionDoc.classId || ownedClass.classId,
+            isOwned: true,
+          });
+        }
+      }
+    }
+
+    // 2. Add from Subject Assignments
+    if (Array.isArray(subjectAssignments)) {
+      for (const sa of subjectAssignments) {
+        if (sa.classId) {
+          const cId = sa.classId._id || sa.classId;
+          const cName = sa.classId.name || sa.classId.displayName || 'Class';
+          if (!assignedClassesMap.has(String(cId))) {
+            assignedClassesMap.set(String(cId), {
+              _id: cId,
+              name: cName,
+              displayName: cName,
+              isOwned: false,
+            });
+          }
+        }
+        if (sa.sectionId) {
+          const sId = sa.sectionId._id || sa.sectionId;
+          const sName = sa.sectionId.name || 'A';
+          const cId = sa.classId?._id || sa.classId;
+          if (!assignedSectionsList.some((s) => String(s._id) === String(sId))) {
+            assignedSectionsList.push({
+              _id: sId,
+              name: sName,
+              classId: cId,
+              isOwned: false,
+            });
+          }
+        }
+      }
+    }
+
+    // Fetch all active subjects in school (for Class Teacher to choose from)
+    const allSubjects = await Subject.find({ schoolId, isActive: true }).select('name code subjectType').sort({ name: 1 });
+
+    // Format formatted subject assignments for Subject Teacher dropdown
+    const formattedAssignments = (subjectAssignments || []).map((sa) => ({
+      classId: sa.classId?._id || sa.classId,
+      className: sa.classId?.name || sa.classId?.displayName || '',
+      sectionId: sa.sectionId?._id || sa.sectionId,
+      sectionName: sa.sectionId?.name || '',
+      subjectId: sa.subjectId?._id || sa.subjectId,
+      subjectName: sa.subjectId?.name || '',
+      subjectCode: sa.subjectId?.code || '',
+    }));
+
+    return res.status(200).json({
+      success: true,
+      teacher: {
+        _id: teacher._id,
+        name: teacher.name,
+        isClassTeacher: !!teacher.isClassTeacher,
+      },
+      currentSession,
+      isClassTeacher: !!teacher.isClassTeacher,
+      ownedClass,
+      assignedClasses: Array.from(assignedClassesMap.values()),
+      assignedSections: assignedSectionsList,
+      subjectAssignments: formattedAssignments,
+      availableSubjects: allSubjects,
+    });
+  } catch (error) {
+    console.error('Get teacher exam options error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load teacher exam options.' });
+  }
+};
+
+// ==========================================
+// EXAM & ASSESSMENT CREATION CONTROLLERS
+// ==========================================
+
+// @desc    Create Exam or Teacher Class Assessment
+// @route   POST /api/principal/exams, POST /api/teacher/exams
+// @access  Private (Principal, Teacher)
 export const createExam = async (req, res) => {
   try {
     const schoolId = getTenantSchoolId(req);
     const {
       academicSessionId,
       name,
+      title,
       code,
       examType,
+      assessmentType,
       description,
+      instructions,
       applicableClassIds,
+      classId,
+      sectionId,
+      sectionIds,
+      subjectId,
+      examDate,
       startDate,
       endDate,
+      maximumMarks,
+      passingMarks,
+      startTime,
+      endTime,
     } = req.body;
 
-    if (!academicSessionId || !name || !code || !startDate || !endDate) {
-      return res.status(400).json({ success: false, message: 'Academic session, name, code, start date, and end date are required.' });
+    const examName = (name || title || '').trim();
+    if (!examName) {
+      return res.status(400).json({ success: false, message: 'Assessment/Exam name is required.' });
     }
 
-    const startD = new Date(startDate);
-    const endD = new Date(endDate);
+    // Resolve academic session
+    let resolvedSessionId = academicSessionId;
+    if (!resolvedSessionId) {
+      const activeSession = await AcademicSession.findOne({ schoolId, isCurrent: true });
+      resolvedSessionId = activeSession?._id;
+    }
+    if (!resolvedSessionId) {
+      const fallbackSession = await AcademicSession.findOne({ schoolId }).sort({ startDate: -1 });
+      resolvedSessionId = fallbackSession?._id;
+    }
+    if (!resolvedSessionId) {
+      return res.status(400).json({ success: false, message: 'Active academic session is required.' });
+    }
 
-    if (endD < startD) {
+    // Role-based authorization for Teachers
+    if (req.user.role === 'teacher') {
+      const context = await resolveTeacherTeachingContext(req);
+      if (!context) {
+        return res.status(404).json({ success: false, message: 'Teacher profile not found.' });
+      }
+
+      const targetClassId = classId || (Array.isArray(applicableClassIds) ? applicableClassIds[0] : null);
+      const targetSectionId = sectionId || (Array.isArray(sectionIds) ? sectionIds[0] : null);
+
+      if (!targetClassId) {
+        return res.status(400).json({ success: false, message: 'Class is required for teacher assessment.' });
+      }
+
+      const isOwned = context.isOwnedClass(targetClassId, targetSectionId);
+      const hasSubject = subjectId ? context.hasSubjectAssignment(targetClassId, targetSectionId, subjectId) : false;
+
+      if (!isOwned && !hasSubject) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Security Violation: You can only create assessments for your assigned class or subject.',
+        });
+      }
+    }
+
+    const sDate = startDate || examDate ? new Date(startDate || examDate) : new Date();
+    const eDate = endDate || examDate ? new Date(endDate || examDate) : sDate;
+
+    if (eDate < sDate) {
       return res.status(400).json({ success: false, message: 'End date must be after or equal to start date.' });
     }
 
-    const existingCode = await Exam.findOne({ schoolId, academicSessionId, code: code.toUpperCase() });
-    if (existingCode) {
-      return res.status(409).json({ success: false, message: 'Exam code already exists for this academic session.' });
-    }
+    // Generate clean unique code
+    const cleanCode = (code || `TEST_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 5)}`).toUpperCase().trim();
+
+    // Map examType / assessmentType
+    let typeVal = examType || assessmentType || 'unitTest';
+    if (typeVal === 'unit_test') typeVal = 'unitTest';
+
+    const classesArray = applicableClassIds && Array.isArray(applicableClassIds) && applicableClassIds.length > 0
+      ? applicableClassIds
+      : classId ? [classId] : [];
 
     const exam = await Exam.create({
       schoolId,
-      academicSessionId,
-      name: name.trim(),
-      code: code.toUpperCase().trim(),
-      examType: examType || 'term',
-      description: (description || '').trim(),
-      applicableClassIds: Array.isArray(applicableClassIds) ? applicableClassIds : [],
-      startDate: startD,
-      endDate: endD,
+      academicSessionId: resolvedSessionId,
+      name: examName,
+      code: cleanCode,
+      examType: typeVal,
+      description: (description || instructions || '').trim(),
+      applicableClassIds: classesArray,
+      startDate: sDate,
+      endDate: eDate,
       status: 'scheduled',
       createdBy: req.user._id,
     });
+
+    let schedule = null;
+    // If classId, subjectId, and maximumMarks are provided, create the ExamSchedule atomically
+    if (classId && subjectId && maximumMarks) {
+      const secs = sectionId ? [sectionId] : (Array.isArray(sectionIds) ? sectionIds : []);
+      schedule = await ExamSchedule.create({
+        schoolId,
+        examId: exam._id,
+        academicSessionId: resolvedSessionId,
+        classId,
+        sectionIds: secs,
+        subjectId,
+        examDate: sDate,
+        startTime: startTime || '09:00',
+        endTime: endTime || '10:00',
+        maximumMarks: Number(maximumMarks),
+        passingMarks: Number(passingMarks || Math.round(Number(maximumMarks) * 0.35)),
+        instructions: (instructions || description || '').trim(),
+        assignedTeacherIds: [req.user._id],
+        status: 'scheduled',
+        createdBy: req.user._id,
+      });
+    }
 
     await AuditLog.create({
       schoolId,
       actor: req.user._id,
       action: 'CREATE_EXAM',
       entity: 'Exam',
-      description: `Created exam "${exam.name}" (${exam.code}).`,
+      description: `Created assessment "${exam.name}" (${exam.code}).`,
     });
 
     return res.status(201).json({
       success: true,
-      message: 'Exam created successfully.',
+      message: 'Assessment created successfully.',
       exam,
+      schedule,
     });
   } catch (error) {
     console.error('Create exam error:', error);
@@ -87,7 +290,7 @@ export const createExam = async (req, res) => {
 };
 
 // @desc    List All School Exams
-// @route   GET /api/principal/exams
+// @route   GET /api/principal/exams, GET /api/teacher/exams
 // @access  Private (Principal, Teacher)
 export const getExams = async (req, res) => {
   try {
@@ -100,7 +303,7 @@ export const getExams = async (req, res) => {
 
     const exams = await Exam.find(query)
       .populate('academicSessionId', 'name')
-      .populate('applicableClassIds', 'name')
+      .populate('applicableClassIds', 'name displayName')
       .sort({ startDate: -1 });
 
     return res.status(200).json({ success: true, exams });

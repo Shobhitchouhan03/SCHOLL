@@ -371,11 +371,10 @@ export const getChildResults = async (req, res) => {
     const results = await Result.find({
       schoolId,
       studentId: student._id,
-      status: 'published',
+      $or: [{ isPublished: true }, { status: 'published' }],
     })
-      .populate('examId', 'name term examDate')
-      .populate('subjectId', 'name code')
-      .sort({ createdAt: -1 });
+      .populate('examId', 'name code examType startDate')
+      .sort({ generatedAt: -1, createdAt: -1 });
 
     return res.status(200).json({
       success: true,

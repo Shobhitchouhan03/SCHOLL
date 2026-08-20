@@ -5,6 +5,7 @@ import {
   getExams,
   createExamSchedule,
   getExamSchedules,
+  getTeacherExamOptions,
   getTeacherMarksEntryRoster,
   saveTeacherStudentMarks,
   getPrincipalMarksReview,
@@ -28,9 +29,11 @@ router.post('/principal/exams/:examId/generate-results', authenticate, authorize
 router.post('/principal/exams/:examId/publish-results', authenticate, authorizeRoles('principal'), publishExamResults);
 router.post('/principal/promotions', authenticate, authorizeRoles('principal'), executeStudentPromotions);
 
-// TEACHER EXAM ROUTES
+// TEACHER EXAM & ASSESSMENT ROUTES
+router.get('/teacher/exams/options', authenticate, authorizeRoles('teacher'), getTeacherExamOptions);
 router.get('/teacher/exams', authenticate, authorizeRoles('teacher'), getExams);
 router.post('/teacher/exams', authenticate, authorizeRoles('teacher'), createExam);
+router.get('/teacher/exams/:examId/schedules', authenticate, authorizeRoles('teacher'), getExamSchedules);
 router.post('/teacher/exams/:examId/schedules', authenticate, authorizeRoles('teacher'), createExamSchedule);
 router.get('/teacher/exams/:examId/marks-entry', authenticate, authorizeRoles('teacher'), getTeacherMarksEntryRoster);
 router.post('/teacher/exams/:examId/marks/submit', authenticate, authorizeRoles('teacher'), saveTeacherStudentMarks);
